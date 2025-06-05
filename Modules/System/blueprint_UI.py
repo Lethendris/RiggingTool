@@ -102,12 +102,25 @@ class ModuleWidget(QtWidgets.QWidget):
         self.imageButton.clicked.connect(self.onIconClicked)
 
     def onIconClicked(self):
+        self.installModule()
 
-        # If the module has a specific function to call, you could call it here
+    def installModule(self):
+        baseName = 'instance_'
+
+
+        cmds.namespace(setNamespace = ':')
+        namespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
+
+        print(namespaces)
+        print('asd')
+
+
         if self.moduleObject and hasattr(self.moduleObject, self.moduleName):
             moduleClass = getattr(self.moduleObject, self.moduleName)
             moduleInstance = moduleClass()
             moduleInstance.install()
+
+
 
 
 class Blueprint_UI(QtWidgets.QDialog):
