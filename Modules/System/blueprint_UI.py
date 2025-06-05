@@ -16,6 +16,27 @@ def mayaMainWindow():
     main_window_ptr = omui.MQtUtil.mainWindow()
     return wrapInstance(int(main_window_ptr), QtWidgets.QWidget)
 
+class NonInteractivePlainTextEdit(QtWidgets.QPlainTextEdit):
+    def __init__(self, text = '', parent = None):
+        super().__init__(text, parent)
+
+        self.setReadOnly(True)
+        self.setTextInteractionFlags(QtCore.Qt.NoTextInteraction)
+        self.setCursor(QtCore.Qt.ArrowCursor)
+        self.viewport().setCursor(QtCore.Qt.ArrowCursor)
+        self.setFocusPolicy(QtCore.Qt.NoFocus)
+
+        self.setStyleSheet('''
+        QPlainTextEdit 
+        {
+        border: none;
+        }
+        ''')
+
+    def keyPressEvent(self, event):
+        event.accept()
+
+
 
 
 class ModuleWidget(QtWidgets.QWidget):
@@ -28,9 +49,6 @@ class ModuleWidget(QtWidgets.QWidget):
         self.moduleObject = moduleObject
 
         self.setupUI()
-
-    def keyPressEvent(self, event):
-        pass
 
 
     def setupUI(self):
@@ -63,18 +81,9 @@ class ModuleWidget(QtWidgets.QWidget):
         self.moduleField.setContentsMargins(5, 0, 0, 0)
 
         # Description text field
-        self.descriptionField = QtWidgets.QPlainTextEdit(self.description)
+        self.descriptionField = NonInteractivePlainTextEdit(self.description)
         self.descriptionField.setFixedHeight(64)
-        self.descriptionField.setReadOnly(True)
-        self.descriptionField.setTextInteractionFlags(QtCore.Qt.NoTextInteraction)
-        self.descriptionField.setCursor(QtCore.Qt.ArrowCursor)
-        self.descriptionField.setStyleSheet("""
-                    QPlainTextEdit {
-                        border: none;
-                    }
-                """)
 
-        self.descriptionField.viewport().setCursor(QtCore.Qt.ArrowCursor)
 
 
         # add widgets
@@ -93,13 +102,18 @@ class ModuleWidget(QtWidgets.QWidget):
         self.imageButton.clicked.connect(self.onIconClicked)
 
     def onIconClicked(self):
-        """Handle icon button click event"""
-        print(f"Module '{self.moduleName}' icon clicked")
+
         # If the module has a specific function to call, you could call it here
-        if self.moduleObject and hasattr(self.moduleObject, 'module_function'):
-            self.moduleObject.module_function()
+        if self.moduleObject and hasattr(self.moduleObject, self.moduleName):
+            moduleClass = getattr(self.moduleObject, self.moduleName)
+            moduleInstance = moduleClass()
+            moduleInstance.install()
+
 
 class Blueprint_UI(QtWidgets.QDialog):
+
+    ui_instance = None
+
     def __init__(self, modulesDir = None, parent = None):
         if parent is None:
             try:
@@ -110,7 +124,8 @@ class Blueprint_UI(QtWidgets.QDialog):
         super().__init__(parent = parent)
 
         self.setWindowTitle('Blueprint Module UI')
-        self.setMinimumSize(400, 200)
+        # self.setMinimumSize(400, 200)
+        self.setFixedSize(400,600)
         self.setWindowFlags(self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint)
 
         # store modules directory
@@ -139,6 +154,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.modulesTabLayout = QtWidgets.QVBoxLayout(self.modulesTab)
         self.modulesTabLayout.setContentsMargins(0, 0, 0, 0)
         self.modulesTabLayout.setSpacing(5)
+
 
         # scroll area
         self.scrollArea = QtWidgets.QScrollArea()
@@ -226,22 +242,23 @@ class Blueprint_UI(QtWidgets.QDialog):
         # Clear the loaded modules dictionary
         self.loadedModules.clear()
 
-def showUI(modulesDir=None):
-    """Show the Blueprint Module UI
+    @classmethod
+    def showUI(cls, modulesDir=None):
+        """Show the Blueprint Module UI
 
-    Args:
-        modulesDir (str, optional): Directory containing module Python files.
+        Args:
+            modulesDir (str, optional): Directory containing module Python files.
 
-    Returns:
-        Blueprint_UI: The UI instance.
-    """
-    # close existing UI if it exists
-    for widget in QtWidgets.QApplication.allWidgets():
-        if isinstance(widget, Blueprint_UI):
-            widget.close()
-            widget.deleteLater()
+        Returns:
+            Blueprint_UI: The UI instance.
+        """
 
-    # create and show new UI
-    UI = Blueprint_UI(modulesDir)
-    UI.show()
-    return UI
+        if not cls.ui_instance:
+            cls.ui_instance = Blueprint_UI(modulesDir)
+
+        if cls.ui_instance.isHidden():
+            cls.ui_instance.show()
+
+        else:
+            cls.ui_instance.raise_()
+            cls.ui_instance.activateWindow()
