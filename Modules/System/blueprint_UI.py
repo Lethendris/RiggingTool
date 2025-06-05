@@ -11,6 +11,9 @@ from shiboken6 import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
 
+from . import utils
+importlib.reload(utils)
+
 def mayaMainWindow():
     """Return the Maya main window widget as a Python object"""
     main_window_ptr = omui.MQtUtil.mainWindow()
@@ -107,17 +110,22 @@ class ModuleWidget(QtWidgets.QWidget):
     def installModule(self):
         baseName = 'instance_'
 
-
         cmds.namespace(setNamespace = ':')
         namespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
 
-        print(namespaces)
-        print('asd')
+
+        for i in range(len(namespaces)):
+            if namespaces[i].find('__') != -1:
+                namespaces[i] = namespaces[i].partition('__')[2]
+
+        newSuffix = utils.findHighestTrailingNumber(namespaces, baseName) + 1
+
+        userSpecifiedName = f'{baseName}{str(newSuffix)}'
 
 
         if self.moduleObject and hasattr(self.moduleObject, self.moduleName):
             moduleClass = getattr(self.moduleObject, self.moduleName)
-            moduleInstance = moduleClass()
+            moduleInstance = moduleClass(userSpecifiedName)
             moduleInstance.install()
 
 
@@ -266,6 +274,7 @@ class Blueprint_UI(QtWidgets.QDialog):
             Blueprint_UI: The UI instance.
         """
 
+        """
         if not cls.ui_instance:
             cls.ui_instance = Blueprint_UI(modulesDir)
 
@@ -275,3 +284,16 @@ class Blueprint_UI(QtWidgets.QDialog):
         else:
             cls.ui_instance.raise_()
             cls.ui_instance.activateWindow()
+        """
+
+
+        # close existing UI if it exists
+        for widget in QtWidgets.QApplication.allWidgets():
+            if isinstance(widget, Blueprint_UI):
+                widget.close()
+                widget.deleteLater()
+
+        # create and show new UI
+        UI = Blueprint_UI(modulesDir)
+        UI.show()
+        return UI
