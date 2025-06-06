@@ -1,3 +1,5 @@
+import maya.cmds as cmds
+
 def findHighestTrailingNumber(names, baseName):
     highestValue = 0
 
@@ -9,3 +11,13 @@ def findHighestTrailingNumber(names, baseName):
 
     return highestValue
 
+def addHierarchyToSet(rootObject, setName):
+    # Get all descendants including the root
+    hierarchy = cmds.listRelatives(rootObject, allDescendents=True, fullPath=True) or []
+    hierarchy.append(rootObject)  # include the root itself
+
+    # Create or add to the set
+    if not cmds.objExists(setName):
+        cmds.sets(hierarchy, name=setName)
+    else:
+        cmds.sets(hierarchy, edit=True, add=setName)

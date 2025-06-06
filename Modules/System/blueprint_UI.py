@@ -5,6 +5,7 @@ It dynamically loads module information from Python files in a specified directo
 """
 import importlib.util
 import os.path
+import sys
 
 from PySide6 import QtCore, QtWidgets, QtGui
 from shiboken6 import wrapInstance
@@ -13,6 +14,10 @@ import maya.cmds as cmds
 
 from . import utils
 importlib.reload(utils)
+
+projectRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if projectRoot not in sys.path:
+    sys.path.append(projectRoot)
 
 def mayaMainWindow():
     """Return the Maya main window widget as a Python object"""
