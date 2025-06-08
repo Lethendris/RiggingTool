@@ -21,3 +21,20 @@ def addHierarchyToSet(rootObject, setName):
         cmds.sets(hierarchy, name=setName)
     else:
         cmds.sets(hierarchy, edit=True, add=setName)
+
+
+def stripLeadingNamespace(nodeName):
+    """
+    Splits a node name into namespace and base name.
+
+    Args:
+        nodeName (str): The full node name potentially with a namespace.
+
+    Returns:
+        list[str] or None: [namespace, baseName] if a namespace exists, otherwise None.
+    """
+    if ':' not in nodeName:
+        return None
+
+    namespace, _, baseName = nodeName.partition(':')
+    return [namespace, baseName]

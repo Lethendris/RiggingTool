@@ -6,6 +6,7 @@ MODULE_NAME = "ModuleA"
 MODULE_DESCRIPTION = "Module A Description"
 MODULE_ICON = "path/to/icon.png"  # Optional
 
+import System.utils as utils
 
 class ModuleA:
     def __init__(self, userSpecifiedName):
@@ -13,7 +14,7 @@ class ModuleA:
         self.moduleName = MODULE_NAME
         self.userSpecifiedName = userSpecifiedName
         self.moduleNameSpace = f'{self.moduleName}__{self.userSpecifiedName}'
-        self.moduleSet = f'{self.moduleNameSpace}:module_set'
+        self.containerName = f'{self.moduleNameSpace}:module_container'
 
         self.jointInfo = [
             ['root_joint', [0.0, 0.0, 0.0]],
@@ -22,50 +23,79 @@ class ModuleA:
         ]
 
     def install(self):
-        """Create the joint hierarchy and set up the module in the scene."""
-        cmds.namespace(setNamespace=':')
-        cmds.namespace(add=self.moduleNameSpace)
 
-        self.moduleSet = cmds.sets(name = self.moduleSet)
+        cmds.namespace(setNamespace = ':')
+        cmds.namespace(addNamespace = self.moduleNameSpace)
 
-        self.jointsGrp = cmds.group(em=True, name=f'{self.moduleNameSpace}:joints_grp')
-        self.moduleGrp = cmds.group(self.jointsGrp, name=f'{self.moduleNameSpace}:module_grp')
+        self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:joints_grp')
+        self.moduleGrp = cmds.group(self.jointsGrp, name = f'{self.moduleNameSpace}:module_grp')
 
-        cmds.select(clear=True)
+        cmds.container(name = self.containerName, addNode = [self.moduleGrp], includeHierarchyBelow = True)
+        cmds.select(clear = True)
 
         joints = []
         for index, (jointName, jointPos) in enumerate(self.jointInfo):
-            fullJointName = f'{self.moduleNameSpace}:{jointName}'
+            parentName = ''
 
             if index > 0:
                 parentName = f'{self.moduleNameSpace}:{self.jointInfo[index - 1][0]}'
-                cmds.select(parentName, replace=True)
+                cmds.select(parentName, replace = True)
 
-            joint = cmds.joint(n=fullJointName, p=jointPos)
-            joints.append(joint)
+            jointName_full = cmds.joint(name = f'{self.moduleNameSpace}:{jointName}', position = jointPos)
+            joints.append(jointName_full)
+
+            cmds.container(self.containerName, edit = True, addNode = [jointName_full])
+
+            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_R'))
+            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_rotateOrder'))
 
             if index > 0:
-                cmds.joint(parentName, edit=True, orientJoint='xyz', secondaryAxisOrient='yup')
+                cmds.joint(parentName, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
 
-        # Parent the root joint under the joints group
-        cmds.parent(joints[0], self.jointsGrp, absolute=True)
+        cmds.parent(joints[0], self.jointsGrp, absolute = True)
+
 
         translationControls = []
         for joint in joints:
             translationControls.append(self.createTranslationControlAtJoint(joint))
 
-        # Create a set containing all relevant module nodes
-        cmds.sets(self.moduleGrp, self.jointsGrp, *joints, addElement=self.moduleSet)
+
+
+
+        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
 
 
     def createTranslationControlAtJoint(self, joint):
-        translationControlFile = f'{os.environ["RIGGING_TOOL_ROOT"]}/ControlObjects/Blueprint/translation_control.fbx'
-        nodes = cmds.file(translationControlFile, i = True, type="FBX", returnNewNodes = True)
-        for node in nodes:
-            cmds.sets(node, addElement = self.moduleSet)
 
-        translationControl = cmds.rename('translation_control', f'{joint}_translation_control')
+        translationControlFile = f'{os.environ["RIGGING_TOOL_ROOT"]}/ControlObjects/Blueprint/translation_control.ma'
+
+        cmds.file(translationControlFile, i = True)
+        try:
+            cmds.delete('sceneConfigurationScriptNode')
+        except:
+            pass
+
+        container = cmds.rename('translation_control_container', f'{joint}_translation_control_container')
+        cmds.container(self.containerName, edit = True, addNode = [container])
 
 
+        for node in cmds.container(container, query = True, nodeList = True):
+            cmds.rename(node, f'{joint}_{node}', ignoreShape = True)
+
+        control = f'{joint}_translation_control'
+
+        jointPos = cmds.xform(joint, query = True, worldSpace = True, translation = True)
+        cmds.xform(control, worldSpace = True, absolute = True, translation = jointPos)
+
+        niceName = utils.stripLeadingNamespace(joint)[1]
+        attrName = f'{niceName}_T'
+
+        cmds.container(container, edit = True, publishAndBind = (f'{control}.translate', attrName))
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
+
+        return control
+
+    def getTranslationControl(self, jointName):
+        return f'{jointName}_translation_control'
 
 
