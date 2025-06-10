@@ -24,9 +24,6 @@ class ModuleA:
             ['end_joint2', [8.0, 0.0, 0.0]]
         ]
 
-    ['ModuleA__instance_1:root_joint_ikHandle', 'effector1', 'root_joint_ikHandle_poleVectorConstraint1', 'ModuleA__instance_1:root_joint_rootPosLocator',
-     'ModuleA__instance_1:end_joint_endPosLocator', 'ModuleA__instance_1:root_joint_rootPosLocator_pointConstraint', 'ModuleA__instance_1:root_joint_ikHandle_pointConstraint']
-
     def install(self):
 
         cmds.namespace(setNamespace = ':')
