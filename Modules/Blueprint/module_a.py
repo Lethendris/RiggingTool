@@ -7,6 +7,8 @@ MODULE_DESCRIPTION = "Module A Description"
 MODULE_ICON = "path/to/icon.png"  # Optional
 
 import System.utils as utils
+import importlib
+importlib.reload(utils)
 
 class ModuleA:
     def __init__(self, userSpecifiedName):
@@ -21,6 +23,9 @@ class ModuleA:
             ['end_joint', [4.0, 0.0, 0.0]],
             ['end_joint2', [8.0, 0.0, 0.0]]
         ]
+
+    ['ModuleA__instance_1:root_joint_ikHandle', 'effector1', 'root_joint_ikHandle_poleVectorConstraint1', 'ModuleA__instance_1:root_joint_rootPosLocator',
+     'ModuleA__instance_1:end_joint_endPosLocator', 'ModuleA__instance_1:root_joint_rootPosLocator_pointConstraint', 'ModuleA__instance_1:root_joint_ikHandle_pointConstraint']
 
     def install(self):
 
@@ -59,7 +64,13 @@ class ModuleA:
         for joint in joints:
             translationControls.append(self.createTranslationControlAtJoint(joint))
 
+        rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
+        cmds.container(self.containerName, edit = True, addNode = rootJoint_pointConstraint)
 
+
+        # setup stretchy joint segments
+        for index in range(len(joints) - 1):
+            self.setupStretchyJointSegment(joints[index], joints[index + 1])
 
 
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
@@ -97,5 +108,33 @@ class ModuleA:
 
     def getTranslationControl(self, jointName):
         return f'{jointName}_translation_control'
+
+    def setupStretchyJointSegment(self, parentJoint, childJoint):
+        parentTranslationControl = self.getTranslationControl(parentJoint)
+        childTranslationControl = self.getTranslationControl(childJoint)
+
+        poleVectorLocator = cmds.spaceLocator(name = f'{parentTranslationControl}_poleVectorLocator')[0]
+        poleVectorLocatorGrp = cmds.group(poleVectorLocator, name = f'{poleVectorLocator}_parentConstraintGrp')
+
+        cmds.parent(poleVectorLocatorGrp, self.moduleGrp, absolute = True)
+        parentConstraint = cmds.parentConstraint(parentTranslationControl, poleVectorLocatorGrp, maintainOffset = False)[0]
+
+        cmds.setAttr(f'{poleVectorLocator}.visibility', 0)
+        cmds.setAttr(f'{poleVectorLocator}.ty', -0.5)
+
+        ikNodes = utils.basicStretchyIK(rootJoint = parentJoint, endJoint = childJoint, container = self.containerName, lockMinimumLength = False, poleVectorObject = poleVectorLocator,
+                        scaleCorrectionAttribute = None)
+
+        ikHandle = ikNodes['ikHandle']
+        rootLocator = ikNodes['rootLocator']
+        endLocator = ikNodes['endLocator']
+
+        childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset = False, name = f'{endLocator}_pointConstraint')[0]
+
+        cmds.container(self.containerName, edit = True, addNode = [poleVectorLocatorGrp, parentConstraint, childPointConstraint], includeHierarchyBelow = True)
+
+        for node in [ikHandle, rootLocator, endLocator]:
+            cmds.parent(node, self.jointsGrp, absolute = True)
+            cmds.setAttr(f'{node}.visibility', 0)
 
 

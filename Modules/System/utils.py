@@ -1,4 +1,7 @@
+from codecs import replace_errors
+
 import maya.cmds as cmds
+
 
 def findHighestTrailingNumber(names, baseName):
     highestValue = 0
@@ -10,17 +13,6 @@ def findHighestTrailingNumber(names, baseName):
                 highestValue = max(highestValue, int(suffix))
 
     return highestValue
-
-def addHierarchyToSet(rootObject, setName):
-    # Get all descendants including the root
-    hierarchy = cmds.listRelatives(rootObject, allDescendents=True, fullPath=True) or []
-    hierarchy.append(rootObject)  # include the root itself
-
-    # Create or add to the set
-    if not cmds.objExists(setName):
-        cmds.sets(hierarchy, name=setName)
-    else:
-        cmds.sets(hierarchy, edit=True, add=setName)
 
 
 def stripLeadingNamespace(nodeName):
@@ -38,3 +30,86 @@ def stripLeadingNamespace(nodeName):
 
     namespace, _, baseName = nodeName.partition(':')
     return [namespace, baseName]
+
+
+def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = True, poleVectorObject = None,
+                    scaleCorrectionAttribute = None):
+    """
+    Creates a basic stretchy IK setup with optional pole vector and visibility controls.
+
+    :param rootJoint: Name of the root joint in the IK chain.
+    :param endJoint: Name of the end joint in the IK chain.
+    :param container: Optional DG container to include all created nodes.
+    :param lockMinimumLength: Reserved for stretch clamping.
+    :param poleVectorObject: Optional object to use for pole vector control. If None, one will be created.
+    :param scaleCorrectionAttribute: Reserved for scale compensation.
+    :return: Dictionary with created nodes and constraints.
+    """
+
+    containedNodes = []
+
+    # create RP IK on joint chain
+    ikNodes = cmds.ikHandle(startJoint = rootJoint, endEffector = endJoint, solver = 'ikRPsolver',
+                            name = f'{rootJoint}_ikHandle')
+    ikNodes[1] = cmds.rename(ikNodes[1], f'{rootJoint}_ikEffector')
+
+    ikEffector = ikNodes[1]
+    ikHandle = ikNodes[0]
+
+    cmds.setAttr(f'{ikHandle}.visibility', 0)
+    containedNodes.extend(ikNodes)
+
+    # create pole vector locator
+    if not poleVectorObject:
+        poleVectorObject = cmds.spaceLocator(name = f'{ikHandle}_poleVectorLocator')[0]
+
+        cmds.xform(poleVectorObject, worldSpace = True, absolute = True,
+                   translation = cmds.xform(rootJoint, query = True, worldSpace = True, translation = True))
+        cmds.xform(poleVectorObject, worldSpace = True, relative = True, translation = (0.0, 1.0, 0.0))
+
+        cmds.setAttr(f'{poleVectorObject}.visibility', 0)
+
+    poleVectorConstraint = cmds.poleVectorConstraint(poleVectorObject, ikHandle)[0]
+    containedNodes.append(poleVectorConstraint)
+
+    # create root and end locators
+    rootLocator = cmds.spaceLocator(name = f'{rootJoint}_rootPosLocator')[0]
+    rootLocator_pointConstraint = \
+        cmds.pointConstraint(rootJoint, rootLocator, maintainOffset = False, name = f'{rootLocator}_pointConstraint')[0]
+
+    endLocator = cmds.spaceLocator(name = f'{endJoint}_endPosLocator')[0]
+    cmds.xform(endLocator, worldSpace = True, absolute = True,
+               translation = cmds.xform(ikHandle, query = True, worldSpace = True, translation = True))
+    ikHandle_pointConstraint = \
+        cmds.pointConstraint(endLocator, ikHandle, maintainOffset = False, name = f'{ikHandle}_pointConstraint')[0]
+
+    containedNodes.extend([rootLocator, endLocator, rootLocator_pointConstraint, ikHandle_pointConstraint])
+
+    cmds.setAttr(f'{rootLocator}.visibility', 0)
+    cmds.setAttr(f'{endLocator}.visibility', 0)
+
+    if container:
+        cmds.container(container, edit = True, addNode = containedNodes, includeHierarchyBelow = True)
+
+    returnDict = {}
+    returnDict['ikHandle'] = ikHandle
+    returnDict['ikEffector'] = ikEffector
+    returnDict['rootLocator'] = rootLocator
+    returnDict['endLocator'] = endLocator
+    returnDict['poleVectorObject'] = poleVectorObject
+    returnDict['ikHandlePointConstraint'] = ikHandle_pointConstraint
+    returnDict['rootLocatorPointConstraint'] = rootLocator_pointConstraint
+
+    return returnDict
+
+def forceSceneUpdate():
+    cmds.setToolTo('moveSuperContext')
+
+    for node in cmds.ls():
+        cmds.select(node, replace = True)
+
+    cmds.select(clear = True)
+
+    cmds.setToolTo('selectSuperContext')
+
+
