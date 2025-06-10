@@ -302,3 +302,32 @@ class Blueprint_UI(QtWidgets.QDialog):
         UI = Blueprint_UI(modulesDir)
         UI.show()
         return UI
+
+
+'''
+import os
+import sys
+import maya.cmds as cmds
+
+
+maya.cmds.file(new = True, f = True)
+
+try:
+    riggingToolRoot = os.environ['RIGGING_TOOL_ROOT']
+    
+except:
+    print('RIGGING_TOOL_ROOT variable not correctly configured.')
+    
+else:
+    path = f'{riggingToolRoot}/Modules'
+    
+    if not path in sys.path:
+        sys.path.append(path)
+    
+    import System.blueprint_UI as blueprint_UI
+    import importlib
+    importlib.reload(blueprint_UI)
+    
+    # Call showUI as a function, not as a class method
+    ui = blueprint_UI.Blueprint_UI.showUI(f'{path}/Blueprint')
+'''
