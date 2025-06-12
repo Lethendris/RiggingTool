@@ -46,7 +46,7 @@ class ModuleA:
             jointName_full = cmds.joint(name = f'{self.moduleNameSpace}:{jointName}', position = jointPos)
             joints.append(jointName_full)
 
-            cmds.container(self.containerName, edit = True, addNode = [jointName_full])
+            utils.addNodeToContainer(self.containerName, jointName_full)
 
             cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_R'))
             cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_rotateOrder'))
@@ -62,7 +62,7 @@ class ModuleA:
             translationControls.append(self.createTranslationControlAtJoint(joint))
 
         rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
-        cmds.container(self.containerName, edit = True, addNode = rootJoint_pointConstraint)
+        utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
 
 
         # setup stretchy joint segments
@@ -84,7 +84,7 @@ class ModuleA:
             pass
 
         container = cmds.rename('translation_control_container', f'{joint}_translation_control_container')
-        cmds.container(self.containerName, edit = True, addNode = [container])
+        utils.addNodeToContainer(self.containerName, container)
 
 
         for node in cmds.container(container, query = True, nodeList = True):
@@ -104,6 +104,7 @@ class ModuleA:
         return control
 
     def getTranslationControl(self, jointName):
+
         return f'{jointName}_translation_control'
 
     def setupStretchyJointSegment(self, parentJoint, childJoint):
@@ -128,7 +129,7 @@ class ModuleA:
 
         childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset = False, name = f'{endLocator}_pointConstraint')[0]
 
-        cmds.container(self.containerName, edit = True, addNode = [poleVectorLocatorGrp, parentConstraint, childPointConstraint], includeHierarchyBelow = True)
+        utils.addNodeToContainer(self.containerName, [poleVectorLocatorGrp, parentConstraint, childPointConstraint], includeHierarchyBelow = True)
 
         for node in [ikHandle, rootLocator, endLocator]:
             cmds.parent(node, self.jointsGrp, absolute = True)

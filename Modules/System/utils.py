@@ -14,6 +14,23 @@ def findHighestTrailingNumber(names, baseName):
 
     return highestValue
 
+def stripAllNamespaces(nodeName):
+    """
+        Splits the given node name into namespace and base name.
+
+        Args:
+            nodeName (str): The node name that may include a namespace.
+
+        Returns:
+            tuple or None: (namespace, baseName) if a namespace exists, otherwise None.
+        """
+
+    if ':' not in str(nodeName):
+        return None
+
+    namespace, _, baseName = str(nodeName).rpartition(':')
+    return [namespace, baseName]
+
 
 def stripLeadingNamespace(nodeName):
     """
@@ -32,8 +49,7 @@ def stripLeadingNamespace(nodeName):
     return [namespace, baseName]
 
 
-def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = True, poleVectorObject = None,
-                    scaleCorrectionAttribute = None):
+def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = True, poleVectorObject = None, scaleCorrectionAttribute = None):
     """
     Creates a basic stretchy IK setup with optional pole vector and visibility controls.
 
@@ -47,6 +63,29 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     """
 
     containedNodes = []
+
+    totalOriginalLength = 0.0
+    parent = rootJoint
+
+    childJoints = []
+
+    while True:
+        children = cmds.listRelatives(parent, children = True)
+        children = cmds.ls(children, type = 'joint')
+
+        if not children:
+            break
+
+        child = children[0]
+        childJoints.append(child)
+
+        totalOriginalLength += cmds.getAttr(f'{child}.translateX')
+
+        parent = child
+
+        if child == endJoint:
+            break
+
 
     # create RP IK on joint chain
     ikNodes = cmds.ikHandle(startJoint = rootJoint, endEffector = endJoint, solver = 'ikRPsolver',
@@ -88,8 +127,12 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     cmds.setAttr(f'{rootLocator}.visibility', 0)
     cmds.setAttr(f'{endLocator}.visibility', 0)
 
+    # distance between locators
+    rootLocatorWithoutNamespace = stripAllNamespaces(rootLocator)
+
+
     if container:
-        cmds.container(container, edit = True, addNode = containedNodes, includeHierarchyBelow = True)
+        addNodeToContainer(container, containedNodes, includeHierarchyBelow = True)
 
     returnDict = {}
     returnDict['ikHandle'] = ikHandle
@@ -102,6 +145,7 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
 
     return returnDict
 
+
 def forceSceneUpdate():
     cmds.setToolTo('moveSuperContext')
 
@@ -113,3 +157,16 @@ def forceSceneUpdate():
     cmds.setToolTo('selectSuperContext')
 
 
+def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includeShapes = False, force = False):
+    if isinstance(nodesIn, list):
+        nodes = list(nodesIn)
+
+    else:
+        nodes = [nodesIn]
+
+    conversionNodes = []
+    for node in nodes:
+        node_conversionNodes = cmds.listConnections(node, source = True, destination = True, type = 'unitConversion')
+
+    nodes.extend(conversionNodes)
+    cmds.container(container, edit = True, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShapes = includeShapes, force = force)
