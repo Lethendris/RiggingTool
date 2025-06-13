@@ -18,7 +18,7 @@ class ModuleA:
         self.moduleNameSpace = f'{self.moduleName}__{self.userSpecifiedName}'
         self.containerName = f'{self.moduleNameSpace}:module_container'
 
-        self.jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 0.0, 0.0]], ['end_joint2', [8.0, 0.0, 0.0]], ['end_joint3', [12.0, 0.0, 0.0]]]
+        self.jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 0.0, 0.0]]]
 
     def install(self):
 
@@ -26,7 +26,8 @@ class ModuleA:
         cmds.namespace(addNamespace = self.moduleNameSpace)
 
         self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:joints_grp')
-        self.moduleGrp = cmds.group(self.jointsGrp, name = f'{self.moduleNameSpace}:module_grp')
+        self.hierarchyRepresentationGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:hierarchyRepresentation_grp')
+        self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyRepresentationGrp, name = f'{self.moduleNameSpace}:module_grp')
 
         cmds.container(name = self.containerName, addNode = [self.moduleGrp], includeHierarchyBelow = True)
         cmds.select(clear = True)
@@ -41,6 +42,8 @@ class ModuleA:
 
             jointName_full = cmds.joint(name = f'{self.moduleNameSpace}:{jointName}', position = jointPos)
             joints.append(jointName_full)
+
+            cmds.setAttr(f'{jointName_full}.visibility', 0)
 
             utils.addNodeToContainer(self.containerName, jointName_full)
 
@@ -131,4 +134,37 @@ class ModuleA:
             cmds.parent(node, self.jointsGrp, absolute = True)
             cmds.setAttr(f'{node}.visibility', 0)
 
+        self.createHierarchyRepresentation(parentJoint, childJoint)
+
+    def createHierarchyRepresentation(self, parentJoint, childJoint):
+
+        nodes = self.createStretchyObject(objectRelativeFilePath = '/ControlObjects/Blueprint/hierarchy_representation.ma', objectContainerName = 'hierarchy_representation_container', objectName = 'hierarchy_representation', parentJoint = parentJoint, childJoint = childJoint)
+        constrainedGrp = nodes[2]
+
+        cmds.parent(constrainedGrp, self.hierarchyRepresentationGrp, relative = True)
+
+
+
+    def createStretchyObject(self, objectRelativeFilePath, objectContainerName, objectName, parentJoint, childJoint):
+        objectFile = os.path.join(os.environ['RIGGING_TOOL_ROOT'], objectRelativeFilePath)
+        cmds.file(objectFile, i = True)
+
+        objectContainer = cmds.rename(objectContainerName, f'{parentJoint}_{objectContainerName}')
+
+        for node in cmds.container(objectContainer, query = True, nodeList = True):
+            cmds.rename(node, f'{parentJoint}_{node}', ignoreShape = True)
+
+        object = f'{parentJoint}_{objectName}'
+
+        constrainedGrp = cmds.group(empty = True, name = f'{object}_parentConstraint_grp')
+        cmds.parent(object, constrainedGrp, absolute = True)
+
+        parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)[0]
+
+        cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
+
+        utils.addNodeToContainer(objectContainer, [constrainedGrp, parentConstraint], includeHierarchyBelow = True)
+        utils.addNodeToContainer(self.containerName, objectContainer)
+
+        return [objectContainer, object, constrainedGrp]
 
