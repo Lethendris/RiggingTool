@@ -128,7 +128,37 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     cmds.setAttr(f'{endLocator}.visibility', 0)
 
     # distance between locators
-    rootLocatorWithoutNamespace = stripAllNamespaces(rootLocator)
+    rootLocatorWithoutNamespace = stripAllNamespaces(rootLocator)[1]
+    endLocatorWithoutNamespace = stripAllNamespaces(endLocator)[1]
+    moduleNamespace = stripAllNamespaces(rootJoint)[0]
+
+    distNode = cmds.createNode('distanceBetween', name = f'{moduleNamespace}:distBetween_{rootLocatorWithoutNamespace}_{endLocatorWithoutNamespace}')
+
+    containedNodes.append(distNode)
+
+    cmds.connectAttr(f'{rootLocator}Shape.worldPosition[0]', f'{distNode}.point1')
+    cmds.connectAttr(f'{endLocator}Shape.worldPosition[0]', f'{distNode}.point2')
+    scaleAttr = f'{distNode}.distance'
+
+    # divide distance by total original length * scale factor
+    scaleFactor = cmds.createNode('multiplyDivide', name = f'{ikHandle}_scaleFactor')
+    containedNodes.append(scaleFactor)
+
+    cmds.setAttr(f'{scaleFactor}.operation', 2) # divide
+    cmds.connectAttr(scaleAttr  , f'{scaleFactor}.input1X')
+    cmds.setAttr(f'{scaleFactor}.input2X', totalOriginalLength)
+
+    translationDriver = f'{scaleFactor}.outputX'
+
+    # connect joints to stretchy calculations
+    for joint in childJoints:
+        multNode = cmds.createNode('multiplyDivide', name = f'{joint}_scaleMultiply')
+        containedNodes.append(multNode)
+
+        cmds.setAttr(f'{multNode}.input1X', cmds.getAttr(f'{joint}.translateX'))
+        cmds.connectAttr(translationDriver, f'{multNode}.input2X')
+        cmds.connectAttr(f'{multNode}.outputX', f'{joint}.translateX')
+
 
 
     if container:

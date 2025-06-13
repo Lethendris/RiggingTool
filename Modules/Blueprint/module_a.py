@@ -18,11 +18,7 @@ class ModuleA:
         self.moduleNameSpace = f'{self.moduleName}__{self.userSpecifiedName}'
         self.containerName = f'{self.moduleNameSpace}:module_container'
 
-        self.jointInfo = [
-            ['root_joint', [0.0, 0.0, 0.0]],
-            ['end_joint', [4.0, 0.0, 0.0]],
-            ['end_joint2', [8.0, 0.0, 0.0]]
-        ]
+        self.jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 0.0, 0.0]], ['end_joint2', [8.0, 0.0, 0.0]], ['end_joint3', [12.0, 0.0, 0.0]]]
 
     def install(self):
 
