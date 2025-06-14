@@ -4,6 +4,17 @@ import maya.cmds as cmds
 
 
 def findHighestTrailingNumber(names, baseName):
+    """
+    Finds the highest numeric suffix following a given base name in a list of names.
+
+    Args:
+        names (list[str]): List of names to inspect.
+        baseName (str): Base name prefix to search for.
+
+    Returns:
+        int: Highest numeric suffix found after the base name.
+    """
+
     highestValue = 0
 
     for name in names:
@@ -14,16 +25,17 @@ def findHighestTrailingNumber(names, baseName):
 
     return highestValue
 
+
 def stripAllNamespaces(nodeName):
     """
-        Splits the given node name into namespace and base name.
+    Splits a Maya node name into its namespace and base name using the last colon.
 
-        Args:
-            nodeName (str): The node name that may include a namespace.
+    Args:
+        nodeName (str): Node name which may include namespace(s).
 
-        Returns:
-            tuple or None: (namespace, baseName) if a namespace exists, otherwise None.
-        """
+    Returns:
+        list[str] or None: [namespace, baseName] if a namespace exists, otherwise None.
+    """
 
     if ':' not in str(nodeName):
         return None
@@ -34,10 +46,10 @@ def stripAllNamespaces(nodeName):
 
 def stripLeadingNamespace(nodeName):
     """
-    Splits a node name into namespace and base name.
+    Splits a Maya node name into the first namespace and the rest of the name.
 
     Args:
-        nodeName (str): The full node name potentially with a namespace.
+        nodeName (str): Node name that may include a namespace.
 
     Returns:
         list[str] or None: [namespace, baseName] if a namespace exists, otherwise None.
@@ -51,15 +63,18 @@ def stripLeadingNamespace(nodeName):
 
 def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = True, poleVectorObject = None, scaleCorrectionAttribute = None):
     """
-    Creates a basic stretchy IK setup with optional pole vector and visibility controls.
+    Creates a basic stretchy IK system between two joints, with optional container and pole vector.
 
-    :param rootJoint: Name of the root joint in the IK chain.
-    :param endJoint: Name of the end joint in the IK chain.
-    :param container: Optional DG container to include all created nodes.
-    :param lockMinimumLength: Reserved for stretch clamping.
-    :param poleVectorObject: Optional object to use for pole vector control. If None, one will be created.
-    :param scaleCorrectionAttribute: Reserved for scale compensation.
-    :return: Dictionary with created nodes and constraints.
+    Args:
+        rootJoint (str): Name of the root joint.
+        endJoint (str): Name of the end joint.
+        container (str, optional): Name of the container to add new nodes to.
+        lockMinimumLength (bool, optional): Reserved for stretch clamping (currently unused).
+        poleVectorObject (str, optional): An optional pole vector control object.
+        scaleCorrectionAttribute (str, optional): Reserved for scale correction (currently unused).
+
+    Returns:
+        dict: Dictionary of created nodes, useful for future references or constraints.
     """
 
     containedNodes = []
@@ -69,6 +84,7 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
 
     childJoints = []
 
+    # Traverse joint chain to gather all joints and measure total original length
     while True:
         children = cmds.listRelatives(parent, children = True)
         children = cmds.ls(children, type = 'joint')
@@ -86,8 +102,7 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
         if child == endJoint:
             break
 
-
-    # create RP IK on joint chain
+    # Create IK handle and rename effector
     ikNodes = cmds.ikHandle(startJoint = rootJoint, endEffector = endJoint, solver = 'ikRPsolver',
                             name = f'{rootJoint}_ikHandle')
     ikNodes[1] = cmds.rename(ikNodes[1], f'{rootJoint}_ikEffector')
@@ -98,7 +113,7 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     cmds.setAttr(f'{ikHandle}.visibility', 0)
     containedNodes.extend(ikNodes)
 
-    # create pole vector locator
+    # Create pole vector if none provided
     if not poleVectorObject:
         poleVectorObject = cmds.spaceLocator(name = f'{ikHandle}_poleVectorLocator')[0]
 
@@ -111,7 +126,7 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     poleVectorConstraint = cmds.poleVectorConstraint(poleVectorObject, ikHandle)[0]
     containedNodes.append(poleVectorConstraint)
 
-    # create root and end locators
+    # Create locators for measuring distance
     rootLocator = cmds.spaceLocator(name = f'{rootJoint}_rootPosLocator')[0]
     rootLocator_pointConstraint = \
         cmds.pointConstraint(rootJoint, rootLocator, maintainOffset = False, name = f'{rootLocator}_pointConstraint')[0]
@@ -119,15 +134,14 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     endLocator = cmds.spaceLocator(name = f'{endJoint}_endPosLocator')[0]
     cmds.xform(endLocator, worldSpace = True, absolute = True,
                translation = cmds.xform(ikHandle, query = True, worldSpace = True, translation = True))
-    ikHandle_pointConstraint = \
-        cmds.pointConstraint(endLocator, ikHandle, maintainOffset = False, name = f'{ikHandle}_pointConstraint')[0]
+    ikHandle_pointConstraint = cmds.pointConstraint(endLocator, ikHandle, maintainOffset = False, name = f'{ikHandle}_pointConstraint')[0]
 
     containedNodes.extend([rootLocator, endLocator, rootLocator_pointConstraint, ikHandle_pointConstraint])
 
     cmds.setAttr(f'{rootLocator}.visibility', 0)
     cmds.setAttr(f'{endLocator}.visibility', 0)
 
-    # distance between locators
+    # Setup distance measurement between locators
     rootLocatorWithoutNamespace = stripAllNamespaces(rootLocator)[1]
     endLocatorWithoutNamespace = stripAllNamespaces(endLocator)[1]
     moduleNamespace = stripAllNamespaces(rootJoint)[0]
@@ -140,17 +154,17 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     cmds.connectAttr(f'{endLocator}Shape.worldPosition[0]', f'{distNode}.point2')
     scaleAttr = f'{distNode}.distance'
 
-    # divide distance by total original length * scale factor
+    # Divide distance by original length to get scale factor
     scaleFactor = cmds.createNode('multiplyDivide', name = f'{ikHandle}_scaleFactor')
     containedNodes.append(scaleFactor)
 
-    cmds.setAttr(f'{scaleFactor}.operation', 2) # divide
-    cmds.connectAttr(scaleAttr  , f'{scaleFactor}.input1X')
+    cmds.setAttr(f'{scaleFactor}.operation', 2)  # divide
+    cmds.connectAttr(scaleAttr, f'{scaleFactor}.input1X')
     cmds.setAttr(f'{scaleFactor}.input2X', totalOriginalLength)
 
     translationDriver = f'{scaleFactor}.outputX'
 
-    # connect joints to stretchy calculations
+    # Multiply original translateX by scale factor
     for joint in childJoints:
         multNode = cmds.createNode('multiplyDivide', name = f'{joint}_scaleMultiply')
         containedNodes.append(multNode)
@@ -159,24 +173,28 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
         cmds.connectAttr(translationDriver, f'{multNode}.input2X')
         cmds.connectAttr(f'{multNode}.outputX', f'{joint}.translateX')
 
-
-
+    # Optionally add all created nodes to the given container
     if container:
         addNodeToContainer(container, containedNodes, includeHierarchyBelow = True)
 
-    returnDict = {}
-    returnDict['ikHandle'] = ikHandle
-    returnDict['ikEffector'] = ikEffector
-    returnDict['rootLocator'] = rootLocator
-    returnDict['endLocator'] = endLocator
-    returnDict['poleVectorObject'] = poleVectorObject
-    returnDict['ikHandlePointConstraint'] = ikHandle_pointConstraint
-    returnDict['rootLocatorPointConstraint'] = rootLocator_pointConstraint
+    return {
+        'ikHandle': ikHandle,
+        'ikEffector': ikEffector,
+        'rootLocator': rootLocator,
+        'endLocator': endLocator,
+        'poleVectorObject': poleVectorObject,
+        'ikHandlePointConstraint': ikHandle_pointConstraint,
+        'rootLocatorPointConstraint': rootLocator_pointConstraint
+    }
 
-    return returnDict
 
 
 def forceSceneUpdate():
+    """
+    Forces Maya's scene graph to update by cycling selection and tool context.
+    This can help ensure scene elements evaluate or refresh visually.
+    """
+
     cmds.setToolTo('moveSuperContext')
 
     for node in cmds.ls():
@@ -188,12 +206,24 @@ def forceSceneUpdate():
 
 
 def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includeShapes = False, force = False):
+    """
+    Adds specified nodes to a Maya container, optionally including hierarchy or shapes.
+
+    Args:
+        container (str): The name of the container node.
+        nodesIn (list or str): Node(s) to add to the container.
+        includeHierarchyBelow (bool): Include entire node hierarchies below the specified nodes.
+        includeShapes (bool): Include shape nodes in addition to transform nodes.
+        force (bool): Force addition even if some nodes are already in the container.
+    """
+
     if isinstance(nodesIn, list):
         nodes = list(nodesIn)
 
     else:
         nodes = [nodesIn]
 
+    # Add any connected unitConversion nodes
     conversionNodes = []
     for node in nodes:
         node_conversionNodes = cmds.listConnections(node, source = True, destination = True, type = 'unitConversion')

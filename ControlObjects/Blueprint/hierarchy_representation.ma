@@ -1,6 +1,6 @@
 //Maya ASCII 2025ff03 scene
 //Name: hierarchy_representation.ma
-//Last modified: Fri, Jun 13, 2025 12:31:46 AM
+//Last modified: Fri, Jun 13, 2025 09:56:37 PM
 //Codeset: 1252
 requires maya "2025ff03";
 requires -nodeType "aiOptions" -nodeType "aiAOVDriver" -nodeType "aiAOVFilter" -nodeType "aiImagerDenoiserOidn"
@@ -11,17 +11,17 @@ fileInfo "product" "Maya 2025";
 fileInfo "version" "2025";
 fileInfo "cutIdentifier" "202407121012-8ed02f4c99";
 fileInfo "osv" "Windows 11 Pro v2009 (Build: 26100)";
-fileInfo "UUID" "9185EE12-4A81-C6BD-93EE-0F922B79A7C8";
+fileInfo "UUID" "5BB46DA9-4604-3F7C-FB6A-1B940850702C";
 createNode transform -s -n "persp";
 	rename -uid "70A3106F-4EE0-A3EF-60A8-989D7E22E8AB";
 	setAttr ".v" no;
-	setAttr ".t" -type "double3" 2.0069067944389616 0.85027264948791548 4.2881402310957926 ;
-	setAttr ".r" -type "double3" -17.73835272960283 8.1999999999999904 0 ;
+	setAttr ".t" -type "double3" 1.7671882111114945 2.3179819640584611 3.4941470256896028 ;
+	setAttr ".r" -type "double3" -38.138352729603469 18.200000000000195 8.3701269852068422e-16 ;
 createNode camera -s -n "perspShape" -p "persp";
 	rename -uid "DAF43A62-48C9-2DCC-B3E8-A8A1A6E0F971";
 	setAttr -k off ".v" no;
 	setAttr ".fl" 34.999999999999993;
-	setAttr ".coi" 4.5062792136728804;
+	setAttr ".coi" 4.5062792136729204;
 	setAttr ".imn" -type "string" "persp";
 	setAttr ".den" -type "string" "persp_depth";
 	setAttr ".man" -type "string" "persp_mask";
@@ -206,23 +206,23 @@ createNode mesh -n "hierarchy_arrow_representationShape" -p "hierarchy_arrow_rep
 	setAttr ".pd[0]" -type "dataPolyComponent" Index_Data UV 0 ;
 	setAttr ".hfd" -type "dataPolyComponent" Index_Data Face 0 ;
 createNode lightLinker -s -n "lightLinker1";
-	rename -uid "06A1C841-4CD8-7B3C-1B0E-59B1AD7506C3";
-	setAttr -s 4 ".lnk";
-	setAttr -s 4 ".slnk";
+	rename -uid "C8C7F93A-49F9-E7D0-BEE4-818633A190D1";
+	setAttr -s 5 ".lnk";
+	setAttr -s 5 ".slnk";
 createNode displayLayerManager -n "layerManager";
-	rename -uid "289DAE60-4F4C-7F2A-2F16-FAB92D36D2F7";
+	rename -uid "CE9506BB-4E7F-E9BD-283A-C49B3D235503";
 createNode displayLayer -n "defaultLayer";
 	rename -uid "5315CA94-48B0-0F1D-68D9-C9AAFE691C1B";
 	setAttr ".ufem" -type "stringArray" 0  ;
 createNode renderLayerManager -n "renderLayerManager";
-	rename -uid "5C79ADB4-40D8-BB8C-3957-EC809670A3BF";
+	rename -uid "D7749C81-42AE-9677-2DC0-E38AD664EDB5";
 createNode renderLayer -n "defaultRenderLayer";
 	rename -uid "22F84387-4831-45B9-F6E0-9FB494549534";
 	setAttr ".g" yes;
 createNode shapeEditorManager -n "shapeEditorManager";
-	rename -uid "3E60CDFB-4E69-00DF-4699-4F9B0EE60030";
+	rename -uid "A20DFE0F-46C5-ECFF-055F-0288BEFD32C7";
 createNode poseInterpolatorManager -n "poseInterpolatorManager";
-	rename -uid "4AB90288-4EA4-6E2E-D5C0-3A9080ADFB97";
+	rename -uid "E368568D-47AA-C875-16AF-A9B5C9D039E0";
 createNode standardSurface -n "standardSurface2";
 	rename -uid "9E738E8E-45C7-BAA5-E459-44BFE9153713";
 	setAttr ".bc" -type "float3" 0.40000001 0.40000001 0.40000001 ;
@@ -266,34 +266,54 @@ createNode container -n "hierarchy_representation_container";
 createNode hyperLayout -n "hyperLayout1";
 	rename -uid "B8EDEC62-4072-271A-1441-FDA06F6EB538";
 	setAttr ".ihi" 0;
-	setAttr -s 2 ".hyp";
+	setAttr -s 3 ".hyp";
+createNode lambert -n "m_hierarchy_representation";
+	rename -uid "5D17DFE5-494D-E83C-D38E-648C2835B838";
+	setAttr ".dc" 0.20000000298023224;
+	setAttr ".c" -type "float3" 1 0.83880001 0 ;
+createNode shadingEngine -n "lambert2SG";
+	rename -uid "95828203-4FE6-93F1-790B-149F05AD789C";
+	setAttr ".ihi" 0;
+	setAttr -s 2 ".dsm";
+	setAttr ".ro" yes;
+createNode materialInfo -n "materialInfo3";
+	rename -uid "840A5341-4F78-CCFD-189A-149B65ADF85F";
 createNode nodeGraphEditorInfo -n "MayaNodeEditorSavedTabsInfo";
-	rename -uid "CF1A9B5E-49B2-1B30-C494-6ABBE11B71EC";
+	rename -uid "9C620F69-4CAC-582D-8964-32AFC3863BB6";
 	setAttr ".tgi[0].tn" -type "string" "Untitled_1";
-	setAttr ".tgi[0].vl" -type "double2" 0.59523807158545394 -18.452380219149241 ;
-	setAttr ".tgi[0].vh" -type "double2" 114.88094781599366 12.499999503294648 ;
-	setAttr -s 7 ".tgi[0].ni";
+	setAttr ".tgi[0].vl" -type "double2" -162.80607299321517 -640.14599974139833 ;
+	setAttr ".tgi[0].vh" -type "double2" 357.42248745117325 379.09791771178215 ;
+	setAttr -s 10 ".tgi[0].ni";
 	setAttr ".tgi[0].ni[0].x" -192.85714721679688;
-	setAttr ".tgi[0].ni[0].y" 182.85714721679688;
+	setAttr ".tgi[0].ni[0].y" 81.428573608398438;
 	setAttr ".tgi[0].ni[0].nvs" 18304;
 	setAttr ".tgi[0].ni[1].x" -192.85714721679688;
-	setAttr ".tgi[0].ni[1].y" -20;
+	setAttr ".tgi[0].ni[1].y" 182.85714721679688;
 	setAttr ".tgi[0].ni[1].nvs" 18304;
-	setAttr ".tgi[0].ni[2].x" -192.85714721679688;
-	setAttr ".tgi[0].ni[2].y" 81.428573608398438;
+	setAttr ".tgi[0].ni[2].x" -195.71427917480469;
+	setAttr ".tgi[0].ni[2].y" 30;
 	setAttr ".tgi[0].ni[2].nvs" 18304;
 	setAttr ".tgi[0].ni[3].x" -192.85714721679688;
 	setAttr ".tgi[0].ni[3].y" -121.42857360839844;
 	setAttr ".tgi[0].ni[3].nvs" 18304;
-	setAttr ".tgi[0].ni[4].x" 114.28571319580078;
-	setAttr ".tgi[0].ni[4].y" 31.428571701049805;
+	setAttr ".tgi[0].ni[4].x" -192.85714721679688;
+	setAttr ".tgi[0].ni[4].y" -20;
 	setAttr ".tgi[0].ni[4].nvs" 18304;
-	setAttr ".tgi[0].ni[5].x" -34.285713195800781;
-	setAttr ".tgi[0].ni[5].y" 30;
+	setAttr ".tgi[0].ni[5].x" 114.28571319580078;
+	setAttr ".tgi[0].ni[5].y" 31.428571701049805;
 	setAttr ".tgi[0].ni[5].nvs" 18304;
-	setAttr ".tgi[0].ni[6].x" -195.71427917480469;
+	setAttr ".tgi[0].ni[6].x" -34.285713195800781;
 	setAttr ".tgi[0].ni[6].y" 30;
 	setAttr ".tgi[0].ni[6].nvs" 18304;
+	setAttr ".tgi[0].ni[7].x" -342.85714721679688;
+	setAttr ".tgi[0].ni[7].y" 5.7142858505249023;
+	setAttr ".tgi[0].ni[7].nvs" 18304;
+	setAttr ".tgi[0].ni[8].x" -35.714286804199219;
+	setAttr ".tgi[0].ni[8].y" 55.714286804199219;
+	setAttr ".tgi[0].ni[8].nvs" 18304;
+	setAttr ".tgi[0].ni[9].x" 271.42855834960938;
+	setAttr ".tgi[0].ni[9].y" 5.7142858505249023;
+	setAttr ".tgi[0].ni[9].nvs" 18304;
 select -ne :time1;
 	setAttr ".o" 0;
 select -ne :hardwareRenderingGlobals;
@@ -304,10 +324,10 @@ select -ne :hardwareRenderingGlobals;
 	setAttr ".fprt" yes;
 	setAttr ".rtfm" 1;
 select -ne :renderPartition;
-	setAttr -s 4 ".st";
+	setAttr -s 5 ".st";
 select -ne :renderGlobalsList1;
 select -ne :defaultShaderList1;
-	setAttr -s 6 ".s";
+	setAttr -s 7 ".s";
 select -ne :postProcessList1;
 	setAttr -s 2 ".p";
 select -ne :defaultRenderingList1;
@@ -340,20 +360,18 @@ relationship "link" ":lightLinker1" ":initialShadingGroup.message" ":defaultLigh
 relationship "link" ":lightLinker1" ":initialParticleSE.message" ":defaultLightSet.message";
 relationship "link" ":lightLinker1" "hierarchy_representationSG.message" ":defaultLightSet.message";
 relationship "link" ":lightLinker1" "hierarchy_arrow_representationSG.message" ":defaultLightSet.message";
+relationship "link" ":lightLinker1" "lambert2SG.message" ":defaultLightSet.message";
 relationship "shadowLink" ":lightLinker1" ":initialShadingGroup.message" ":defaultLightSet.message";
 relationship "shadowLink" ":lightLinker1" ":initialParticleSE.message" ":defaultLightSet.message";
 relationship "shadowLink" ":lightLinker1" "hierarchy_representationSG.message" ":defaultLightSet.message";
 relationship "shadowLink" ":lightLinker1" "hierarchy_arrow_representationSG.message" ":defaultLightSet.message";
+relationship "shadowLink" ":lightLinker1" "lambert2SG.message" ":defaultLightSet.message";
 connectAttr "layerManager.dli[0]" "defaultLayer.id";
 connectAttr "renderLayerManager.rlmi[0]" "defaultRenderLayer.rlid";
 connectAttr "standardSurface2.oc" "hierarchy_representationSG.ss";
-connectAttr "hierarchy_representationShape.iog" "hierarchy_representationSG.dsm"
-		 -na;
 connectAttr "hierarchy_representationSG.msg" "materialInfo1.sg";
 connectAttr "standardSurface2.msg" "materialInfo1.m";
 connectAttr "standardSurface2.oc" "hierarchy_arrow_representationSG.ss";
-connectAttr "hierarchy_arrow_representationShape.iog" "hierarchy_arrow_representationSG.dsm"
-		 -na;
 connectAttr "hierarchy_arrow_representationSG.msg" "materialInfo2.sg";
 connectAttr "standardSurface2.msg" "materialInfo2.m";
 connectAttr ":defaultArnoldDenoiser.msg" ":defaultArnoldRenderOptions.imagers" -na
@@ -365,21 +383,33 @@ connectAttr ":defaultArnoldDriver.msg" ":defaultArnoldRenderOptions.drvr";
 connectAttr "hyperLayout1.msg" "hierarchy_representation_container.hl";
 connectAttr "hierarchy_representation.msg" "hyperLayout1.hyp[0].dn";
 connectAttr "hierarchy_representationShape.msg" "hyperLayout1.hyp[1].dn";
-connectAttr ":defaultArnoldDenoiser.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[0].dn"
+connectAttr "m_hierarchy_representation.msg" "hyperLayout1.hyp[2].dn";
+connectAttr "m_hierarchy_representation.oc" "lambert2SG.ss";
+connectAttr "hierarchy_representationShape.iog" "lambert2SG.dsm" -na;
+connectAttr "hierarchy_arrow_representationShape.iog" "lambert2SG.dsm" -na;
+connectAttr "lambert2SG.msg" "materialInfo3.sg";
+connectAttr "m_hierarchy_representation.msg" "materialInfo3.m";
+connectAttr ":defaultArnoldDisplayDriver.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[0].dn"
 		;
-connectAttr ":defaultArnoldFilter.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[1].dn"
+connectAttr ":defaultArnoldDenoiser.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[1].dn"
 		;
-connectAttr ":defaultArnoldDisplayDriver.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[2].dn"
-		;
+connectAttr "hyperLayout1.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[2].dn";
 connectAttr ":defaultArnoldDriver.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[3].dn"
 		;
-connectAttr ":defaultArnoldRenderOptions.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[4].dn"
+connectAttr ":defaultArnoldFilter.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[4].dn"
 		;
-connectAttr "hierarchy_representation_container.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[5].dn"
+connectAttr ":defaultArnoldRenderOptions.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[5].dn"
 		;
-connectAttr "hyperLayout1.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[6].dn";
+connectAttr "hierarchy_representation_container.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[6].dn"
+		;
+connectAttr "m_hierarchy_representation.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[7].dn"
+		;
+connectAttr "lambert2SG.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[8].dn";
+connectAttr "materialInfo3.msg" "MayaNodeEditorSavedTabsInfo.tgi[0].ni[9].dn";
 connectAttr "hierarchy_representationSG.pa" ":renderPartition.st" -na;
 connectAttr "hierarchy_arrow_representationSG.pa" ":renderPartition.st" -na;
+connectAttr "lambert2SG.pa" ":renderPartition.st" -na;
 connectAttr "standardSurface2.msg" ":defaultShaderList1.s" -na;
+connectAttr "m_hierarchy_representation.msg" ":defaultShaderList1.s" -na;
 connectAttr "defaultRenderLayer.msg" ":defaultRenderingList1.r" -na;
 // End of hierarchy_representation.ma
