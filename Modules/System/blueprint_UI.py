@@ -133,6 +133,11 @@ class ModuleWidget(QtWidgets.QWidget):
             moduleInstance = moduleClass(userSpecifiedName)
             moduleInstance.install()
 
+            moduleTransform = f'{self.moduleName}__{userSpecifiedName}:module_transform'
+            cmds.select(moduleTransform)
+            cmds.setToolTo('moveSuperContext')
+
+
 
 
 

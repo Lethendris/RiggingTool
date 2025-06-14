@@ -1,6 +1,7 @@
 import os
 
 import maya.cmds as cmds
+from pymel.core.animation import scaleConstraint
 
 MODULE_NAME = "ModuleA"
 MODULE_DESCRIPTION = "Module A Description"
@@ -40,10 +41,12 @@ class ModuleA:
         # Create groups to organize joints and visual representation.
         self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:joints_grp')
         self.hierarchyRepresentationGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:hierarchyRepresentation_grp')
-        self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyRepresentationGrp, name = f'{self.moduleNameSpace}:module_grp')
+        self.orientationControlsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:orientationControls_grp')
+        self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyRepresentationGrp, self.orientationControlsGrp, name = f'{self.moduleNameSpace}:module_grp')
 
         # Create a container and include the hierarchy.
         cmds.container(name = self.containerName, addNode = [self.moduleGrp], includeHierarchyBelow = True)
+
         cmds.select(clear = True)
 
         # Create joints as defined in self.jointInfo.
@@ -77,8 +80,9 @@ class ModuleA:
         # Parent the root joint to the joints group.
         cmds.parent(joints[0], self.jointsGrp, absolute = True)
 
-        # Create translation controls at each joint.
+        self.initializeModuleTransform(self.jointInfo[0][1])
 
+        # Create translation controls at each joint.
         translationControls = []
 
         for joint in joints:
@@ -93,6 +97,10 @@ class ModuleA:
         # Create stretchy segments between each joint pair.
         for index in range(len(joints) - 1):
             self.setupStretchyJointSegment(joints[index], joints[index + 1])
+
+
+        # NON default functionality
+        self.createOrientationControl(joints[0], joints[1])
 
         # Lock the container to prevent accidental edits.
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
@@ -128,6 +136,8 @@ class ModuleA:
             cmds.rename(node, f'{joint}_{node}', ignoreShape = True)
 
         control = f'{joint}_translation_control'
+
+        cmds.parent(control, self.moduleTransform, absolute = True)
 
         # Move control to match the joint's position.
         jointPos = cmds.xform(joint, query = True, worldSpace = True, translation = True)
@@ -198,7 +208,7 @@ class ModuleA:
             childJoint (str): End joint of the hierarchy link.
         """
 
-        nodes = self.createStretchyObject(objectRelativeFilePath = '/ControlObjects/Blueprint/hierarchy_representation.ma', objectContainerName = 'hierarchy_representation_container', objectName = 'hierarchy_representation', parentJoint = parentJoint, childJoint = childJoint)
+        nodes = self.createStretchyObject(objectRelativeFilePath = 'ControlObjects/Blueprint/hierarchy_representation.ma', objectContainerName = 'hierarchy_representation_container', objectName = 'hierarchy_representation', parentJoint = parentJoint, childJoint = childJoint)
         constrainedGrp = nodes[2]
 
         # Parent the visual representation group under the hierarchy group.
@@ -240,9 +250,59 @@ class ModuleA:
         # Connect translateX to scaleX to drive stretch.
         cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
 
+        scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
+
         # Add to containers.
-        utils.addNodeToContainer(objectContainer, [constrainedGrp, parentConstraint], includeHierarchyBelow = True)
+        utils.addNodeToContainer(objectContainer, [constrainedGrp, parentConstraint, scaleConstraint], includeHierarchyBelow = True)
         utils.addNodeToContainer(self.containerName, objectContainer)
 
         return [objectContainer, object, constrainedGrp]
+
+    def initializeModuleTransform(self, rootPos):
+        print(os.environ["RIGGING_TOOL_ROOT"])
+        controlGrpFile = os.path.join(os.environ["RIGGING_TOOL_ROOT"], 'ControlObjects/Blueprint/controlGroup_control.ma')
+        print(controlGrpFile)
+        cmds.file(controlGrpFile, i = True)
+
+        self.moduleTransform = cmds.rename('controlGroup_control', f'{self.moduleNameSpace}:module_transform')
+
+        cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = rootPos)
+
+        utils.addNodeToContainer(self.containerName, self.moduleTransform, includeHierarchyBelow = True)
+
+        # Setup global scaling
+        cmds.connectAttr(f'{self.moduleTransform}.scaleY', f'{self.moduleTransform}.scaleX')
+        cmds.connectAttr(f'{self.moduleTransform}.scaleY', f'{self.moduleTransform}.scaleZ')
+
+        cmds.aliasAttr('globalScale', f'{self.moduleTransform}.scaleY')
+
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.translate', 'moduleTransform_T'))
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.rotate', 'moduleTransform_R'))
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.globalScale', 'moduleTransform_globalScale'))
+
+    def deleteHierarchyRepresentation(self, parentJoint):
+        hieararchyContainer = f'{parentJoint}_hierarchy_representation_container'
+        cmds.delete(hieararchyContainer)
+
+
+    def createOrientationControl(self, parentJoint, childJoint):
+
+        self.deleteHierarchyRepresentation(parentJoint)
+
+        nodes = self.createStretchyObject(objectRelativeFilePath = 'ControlObjects/Blueprint/orientation_control.ma', objectContainerName = 'orientation_control_container', objectName = 'orientation_control', parentJoint = parentJoint, childJoint = childJoint)
+        orientationContainer = nodes[0]
+        orientationControl = nodes[1]
+        constrainedGrp = nodes[2]
+
+        cmds.parent(constrainedGrp, self.orientationControlsGrp, relative = True)
+
+        parentJointWithoutNamespace = utils.stripAllNamespaces(parentJoint)[1]
+        attrName = f'{parentJointWithoutNamespace}_orientation'
+        cmds.container(orientationContainer, edit = True, publishAndBind = (f'{orientationControl}.rotateX', attrName))
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{orientationContainer}.{attrName}', attrName))
+
+        return orientationControl
+
+
+
 
