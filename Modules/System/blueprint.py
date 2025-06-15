@@ -2,16 +2,14 @@ import os
 
 import maya.cmds as cmds
 
-MODULE_NAME = "ModuleA"
-MODULE_DESCRIPTION = "Module A Description"
-MODULE_ICON = "path/to/icon.png"  # Optional
-
 import System.utils as utils
 import importlib
 importlib.reload(utils)
 
-class ModuleA:
-    def __init__(self, userSpecifiedName):
+class Blueprint:
+    def __init__(self, moduleName, userSpecifiedName, jointInfo):
+        print('base class constructor')
+
         """
         Initialize the ModuleA instance with a given user-specified name.
 
@@ -19,14 +17,18 @@ class ModuleA:
             userSpecifiedName (str): Custom name to uniquely identify this module instance.
         """
 
-        self.moduleName = MODULE_NAME # Constant module base name (should be defined externally).
+        self.moduleName = moduleName # Constant module base name (should be defined externally).
         self.userSpecifiedName = userSpecifiedName
+        self.jointInfo = jointInfo
         self.moduleNameSpace = f'{self.moduleName}__{self.userSpecifiedName}'
         self.containerName = f'{self.moduleNameSpace}:module_container'
 
-        # Default joint information: names and world-space positions.
-        self.jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 0.0, 0.0]]]
+    # Methods intended for overriding by derived class
+    def install_custom(self, joints):
+        print('install_custom() methods is not implemented by derived class.')
 
+
+    # BASE CLASS METHODS
     def install(self):
         """
         Set up the module in the Maya scene by creating joints, control groups,
@@ -97,13 +99,10 @@ class ModuleA:
         for index in range(len(joints) - 1):
             self.setupStretchyJointSegment(joints[index], joints[index + 1])
 
-
-        # NON default functionality
-        self.createOrientationControl(joints[0], joints[1])
+        self.install_custom(joints)
 
         # Lock the container to prevent accidental edits.
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
-
 
     def createTranslationControlAtJoint(self, joint):
         """
@@ -120,11 +119,6 @@ class ModuleA:
 
         # Import the translation control file.
         cmds.file(translationControlFile, i = True)
-
-        try:
-            cmds.delete('sceneConfigurationScriptNode')
-        except:
-            pass
 
         # Rename the imported container.
         container = cmds.rename('translation_control_container', f'{joint}_translation_control_container')
