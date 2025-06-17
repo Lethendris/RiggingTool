@@ -224,7 +224,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.snapToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.snapToHook_btn.setFont(buttonFont)
 
-        self.constrainRootToHook_btn = QtWidgets.QPushButton('Constr. \nRoot to Hook')
+        self.constrainRootToHook_btn = QtWidgets.QPushButton('Constrain\nRoot to Hook')
         self.constrainRootToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.constrainRootToHook_btn.setFont(buttonFont)
 
@@ -269,9 +269,6 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self.modulesTabLayout.addWidget(self.lockButton)
         self.modulesTabLayout.addWidget(self.publishButton)
-        # self.buttonsLayout = QtWidgets.QVBoxLayout(self.modulesTab)
-        # self.reHookButton = QtWidgets.QPushButton('Rehook')
-        # self.modulesTabLayout.addWidget(self.reHookButton)
 
         self.tabWidget.addTab(self.modulesTab, 'Modules')
 
