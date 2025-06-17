@@ -66,7 +66,6 @@ class ModuleWidget(QtWidgets.QWidget):
         self.mainLayout.setSpacing(5)
 
         # create widgets
-
         # image button
         self.imageButton = QtWidgets.QPushButton()
         self.imageButton.setFixedSize(64, 64)
@@ -91,8 +90,6 @@ class ModuleWidget(QtWidgets.QWidget):
         # Description text field
         self.descriptionField = NonInteractivePlainTextEdit(self.description)
         self.descriptionField.setFixedHeight(64)
-
-
 
         # add widgets
         self.mainLayout.addWidget(self.imageButton, alignment = QtCore.Qt.AlignBottom)
@@ -136,8 +133,6 @@ class ModuleWidget(QtWidgets.QWidget):
             moduleTransform = f'{self.moduleName}__{userSpecifiedName}:module_transform'
             cmds.select(moduleTransform)
             cmds.setToolTo('moveSuperContext')
-
-
 
 
 
@@ -191,10 +186,12 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.scrollArea = QtWidgets.QScrollArea()
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setFrameShape(QtWidgets.QFrame.Box)
+        self.scrollArea.setFixedHeight(300)
 
         self.scrollWidget = QtWidgets.QWidget()
         self.scrollLayout = QtWidgets.QVBoxLayout(self.scrollWidget)
         self.scrollLayout.setContentsMargins(5, 5, 5, 5)
+
         self.scrollLayout.setSpacing(5)
         self.scrollLayout.setAlignment(QtCore.Qt.AlignTop)
 
@@ -209,6 +206,72 @@ class Blueprint_UI(QtWidgets.QDialog):
         # Set the scroll widget as the scroll area's widget
         self.scrollArea.setWidget(self.scrollWidget)
         self.modulesTabLayout.addWidget(self.scrollArea)
+
+        self.gridWidget = QtWidgets.QWidget()
+        self.gridLayout = QtWidgets.QGridLayout(self.gridWidget)
+        self.gridLayout.setSpacing(5)
+        self.gridLayout.setContentsMargins(5, 0, 5, 0)
+
+        buttonFont = QtGui.QFont()
+        buttonFont.setPointSize(11)
+        # buttonFont.setBold(True)
+
+        self.rehook_btn = QtWidgets.QPushButton('Rehook')
+        self.rehook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.rehook_btn.setFont(buttonFont)
+
+        self.snapToHook_btn = QtWidgets.QPushButton('Snap To Hook')
+        self.snapToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.snapToHook_btn.setFont(buttonFont)
+
+        self.constrainRootToHook_btn = QtWidgets.QPushButton('Constr. Root to Hook')
+        self.constrainRootToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.constrainRootToHook_btn.setFont(buttonFont)
+
+        self.group_btn = QtWidgets.QPushButton('Group')
+        self.group_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.group_btn.setFont(buttonFont)
+
+        self.ungroup_btn = QtWidgets.QPushButton('Ungroup')
+        self.ungroup_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.ungroup_btn.setFont(buttonFont)
+
+        self.mirror_btn = QtWidgets.QPushButton('Mirror')
+        self.mirror_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.mirror_btn.setFont(buttonFont)
+
+        self.delete_btn = QtWidgets.QPushButton('Delete')
+        self.delete_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.delete_btn.setFont(buttonFont)
+
+
+        self.gridLayout.addWidget(self.rehook_btn, 0, 0)
+        self.gridLayout.addWidget(self.snapToHook_btn, 0, 1)
+        self.gridLayout.addWidget(self.constrainRootToHook_btn, 0, 2)
+        self.gridLayout.addWidget(self.group_btn, 1, 0)
+        self.gridLayout.addWidget(self.ungroup_btn, 1, 1)
+        self.gridLayout.addWidget(self.mirror_btn, 1, 2)
+        self.gridLayout.addWidget(self.delete_btn, 2, 1)
+
+        # Make the grid occupy vertical space
+        self.gridWidget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+
+
+        self.modulesTabLayout.addWidget(self.gridWidget, stretch = 1)
+
+        self.lockButton = QtWidgets.QPushButton("LOCK")
+        self.lockButton.setFixedHeight(30)
+        self.lockButton.setFont(buttonFont)
+        self.publishButton = QtWidgets.QPushButton("PUBLISH")
+        self.publishButton.setFixedHeight(40)
+        self.publishButton.setFont(buttonFont)
+
+
+        self.modulesTabLayout.addWidget(self.lockButton)
+        self.modulesTabLayout.addWidget(self.publishButton)
+        # self.buttonsLayout = QtWidgets.QVBoxLayout(self.modulesTab)
+        # self.reHookButton = QtWidgets.QPushButton('Rehook')
+        # self.modulesTabLayout.addWidget(self.reHookButton)
 
         self.tabWidget.addTab(self.modulesTab, 'Modules')
 

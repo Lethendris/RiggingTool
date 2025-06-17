@@ -188,7 +188,6 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     }
 
 
-
 def forceSceneUpdate():
     """
     Forces Maya's scene graph to update by cycling selection and tool context.
@@ -230,3 +229,147 @@ def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includ
 
     nodes.extend(conversionNodes)
     cmds.container(container, edit = True, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShapes = includeShapes, force = force)
+
+
+def assignMaterial(obj, color = (1, 0, 0), diffuse = 0.2):
+    """
+    Creates a Lambert material, assigns it to the given object,
+    and returns both the material and its materialInfo node.
+
+    Args:
+        obj (str): The name of the object to assign the material to.
+        materialName (str): The name of the material to create.
+        color (tuple): RGB values for the diffuse color.
+        diffuse (float): Diffuse intensity (0–1 range).
+
+    Returns:
+        tuple: (materialNode, materialInfoNode)
+    """
+    materialName = f'{obj}_m'
+
+    # Create material
+    if not cmds.objExists(materialName):
+        material = cmds.shadingNode("lambert", asShader = True, name = materialName)
+    else:
+        material = materialName
+
+    # Set color and diffuse
+    cmds.setAttr(f"{material}.color", *color, type = "double3")
+    cmds.setAttr(f"{material}.diffuse", diffuse)
+
+    # Create shading group
+    shadingGroup = cmds.sets(renderable = True, noSurfaceShader = True, empty = True, name = f"{material}SG")
+    cmds.connectAttr(f"{material}.outColor", f"{shadingGroup}.surfaceShader", force = True)
+
+    # Assign material to object
+    cmds.sets(obj, edit = True, forceElement = shadingGroup)
+
+    # Return the materialInfo node if connected
+    materialInfo = cmds.listConnections(material, type = "materialInfo")
+    materialInfoNode = materialInfo[0] if materialInfo else None
+    materialInfoNode = cmds.rename(materialInfoNode, f'{obj}_mInfo')
+
+    return [material, materialInfoNode]
+
+
+def createTranslationControl(name):
+    """
+    Creates a translation control as a red sphere, assigns a material, and adds it to a container.
+
+    Args:
+        name (str): Name of the control object (sphere).
+
+    Returns:
+        tuple: (controlObject, materialNode, materialInfoNode, containerNode)
+    """
+    # Create control sphere
+    control = cmds.sphere(name = f'{name}_translation_control', ax = (0, 1, 0), ch = False)[0]
+
+    # Assign red material
+    material, materialInfo = assignMaterial(control, color = (1, 0, 0))
+
+    # Create container and add nodes
+    container = cmds.container(name = f'{name}_translation_container', addNode = (control, material, materialInfo))
+
+    return [container, control]
+
+
+def createOrientationConnector(name):
+    """
+    Creates a translation control as a red sphere, assigns a material, and adds it to a container.
+
+    Args:
+        name (str): Name of the control object.
+
+    Returns:
+        tuple: (controlObject, materialNode, materialInfoNode, containerNode)
+    """
+
+    # Create control sphere
+    cube = cmds.polyCube(name = 'y_cube', width = 1, height = 1, depth = 0.1, ch = False)[0]
+    cmds.move(0.5, 0, 0, f'{cube}.f[5]', relative = True)
+    cmds.move(0.5, 0, 0, f'{cube}.f[4]', relative = True)
+
+    cone = cmds.polyCone(name = 'y_cone', sx = 8, sy = 1, sz = 0, r = 0.05, h = 0.2, heightBaseline = -1, ch = False)[0]
+    cmds.move(0.5, 0.5, 0, cone, relative = True)
+
+    y_orientation_connector = cmds.polyUnite(cube, cone, name = f'y_{name}', ch = False)[0]
+    y_material, y_materialInfo = assignMaterial(y_orientation_connector, color = (0, 1, 0), diffuse = 0.2)
+
+    # create X axis object
+    z_orientation_connector = cmds.duplicate(y_orientation_connector, name = f'z_{name}')[0]
+    cmds.rotate(90, 0, 0, z_orientation_connector, relative = True)
+    z_material, z_materialInfo = assignMaterial(z_orientation_connector, color = (0, 0, 1), diffuse = 0.2)
+
+    connector = cmds.polyUnite(y_orientation_connector, z_orientation_connector, name = f'{name}_orientation_connector', ch = False)[0]
+
+    # Create container and add nodes
+    container = cmds.container(name = f'{name}_orientation_container', addNode = (connector, y_material, y_materialInfo, z_material, z_materialInfo))
+
+    return [container, connector]
+
+def createHierarchyConnector(name):
+    cylinder = cmds.polyCylinder(name = f'{name}_cylinder', sx = 8, sy = 1, sz = 1, height = 1, radius = 0.2, heightBaseline = -1, ch = False)[0]
+    cmds.delete(f'{cylinder}.f[8:23]')
+    cmds.rotate(0, 0, -90, cylinder, relative = True)
+
+    cone = cmds.polyCone(name = f'{name}_cone', sx = 8, sy = 1, sz = 0, r = 0.75, h = 0.2, heightBaseline = -1, ch = False)[0]
+    cmds.rotate(0, 0, -90, cone, relative = True)
+    cmds.move(0.4, 0, 0, cone, relative = True)
+
+    connector = cmds.polyUnite(cylinder, cone, name = f'{name}_hierarchy_connector', ch = False)[0]
+    material, materialInfo = assignMaterial(connector, color = (1.0, 0.8, 0), diffuse = 0.2)
+
+    # Create container and add nodes
+    container = cmds.container(name = f'{name}_hierarchy_container', addNode = (connector, material, materialInfo))
+
+    return [container, connector]
+
+def createModuleTransformControl(name):
+    mainCube = cmds.polyCube(name = f'{name}_mainCube', width = 2, height = 2, depth = 2, ch = False)[0]
+
+    cubeX = cmds.polyCube(name = f'{name}_cubeX', width = 3, height = 3, depth = 3, ch = False)[0]
+    cmds.move(0, 0, -1.5, f'{cubeX}.f[0]', relative = True)
+    cmds.move(0, 0, 1.5, f'{cubeX}.f[2]', relative = True)
+    cmds.move(0, -1.5, 0, f'{cubeX}.f[1]', relative = True)
+    cmds.move(0, 1.5, 0, f'{cubeX}.f[3]', relative = True)
+
+    cubeY = cmds.polyCube(name = f'{name}_cubeY', width = 3, height = 3, depth = 3, ch = False)[0]
+    cmds.move(-1.5, 0, 0, f'{cubeY}.f[4]', relative = True)
+    cmds.move(1.5, 0, 0, f'{cubeY}.f[5]', relative = True)
+    cmds.move(0, 0, -1.5, f'{cubeY}.f[0]', relative = True)
+    cmds.move(0, 0, 1.5, f'{cubeY}.f[2]', relative = True)
+
+    cubeZ = cmds.polyCube(name = f'{name}_cubeZ', width = 3, height = 3, depth = 3, ch = False)[0]
+    cmds.move(-1.5, 0, 0, f'{cubeZ}.f[4]', relative = True)
+    cmds.move(1.5, 0, 0, f'{cubeZ}.f[5]', relative = True)
+    cmds.move(0, -1.5, 0, f'{cubeZ}.f[1]', relative = True)
+    cmds.move(0, 1.5, 0, f'{cubeZ}.f[3]', relative = True)
+
+    control = cmds.polyUnite(mainCube, cubeX, cubeY, cubeZ, name = name, ch = False)[0]
+    shapeNode = cmds.listRelatives(control, shapes = True)[0]
+
+    cmds.setAttr(f'{shapeNode}.overrideEnabled', 1)
+    cmds.setAttr(f'{shapeNode}.overrideShading', 0)
+
+    return control

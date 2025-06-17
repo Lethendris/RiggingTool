@@ -10,14 +10,13 @@ MODULE_ICON = os.path.join(os.environ['RIGGING_TOOL_ROOT'], 'Icons/_singleJointS
 
 class SingleJointSegment(blueprintMod.Blueprint):
     def __init__(self, userSpecifiedName):
-        print('derived class constructor')
         jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 0.0, 0.0]]]
 
         super().__init__(MODULE_NAME, userSpecifiedName, jointInfo)
 
-    # def install_custom(self, joints):
-    #     # NON default functionality
-    #     # self.createOrientationControl(joints[0], joints[1])
+    def install_custom(self, joints):
+        pass
+        # self.createOrientationControl(joints[0], joints[1])
 
 
 

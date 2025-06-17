@@ -2,14 +2,18 @@ import os
 
 import maya.cmds as cmds
 
+MODULE_NAME = "ModuleA"
+MODULE_DESCRIPTION = "Module A Description"
+MODULE_ICON = "path/to/icon.png"  # Optional
+
 import System.utils as utils
 import importlib
+
 importlib.reload(utils)
 
-class Blueprint:
-    def __init__(self, moduleName, userSpecifiedName, jointInfo):
-        print('base class constructor')
 
+class ModuleA:
+    def __init__(self, userSpecifiedName):
         """
         Initialize the ModuleA instance with a given user-specified name.
 
@@ -17,18 +21,14 @@ class Blueprint:
             userSpecifiedName (str): Custom name to uniquely identify this module instance.
         """
 
-        self.moduleName = moduleName # Constant module base name (should be defined externally).
+        self.moduleName = MODULE_NAME  # Constant module base name (should be defined externally).
         self.userSpecifiedName = userSpecifiedName
-        self.jointInfo = jointInfo
         self.moduleNameSpace = f'{self.moduleName}__{self.userSpecifiedName}'
         self.containerName = f'{self.moduleNameSpace}:module_container'
 
-    # Methods intended for overriding by derived class
-    def install_custom(self, joints):
-        print('install_custom() methods is not implemented by derived class.')
+        # Default joint information: names and world-space positions.
+        self.jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 0.0, 0.0]]]
 
-
-    # BASE CLASS METHODS
     def install(self):
         """
         Set up the module in the Maya scene by creating joints, control groups,
@@ -65,7 +65,7 @@ class Blueprint:
             joints.append(jointName_full)
 
             # Hide joint from view
-            cmds.setAttr(f'{jointName_full}.visibility', 0)
+            # cmds.setAttr(f'{jointName_full}.visibility', 0)
 
             # Add joint to the module container.
             utils.addNodeToContainer(self.containerName, jointName_full)
@@ -94,12 +94,10 @@ class Blueprint:
         rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
         utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
 
-
         # Create stretchy segments between each joint pair.
         for index in range(len(joints) - 1):
-            self.setupStretchyJointSegment(connectorType = 'orientation', parentJoint = joints[index], childJoint = joints[index + 1])
 
-        self.install_custom(joints)
+            self.setupStretchyJointSegment(connectorType = 'orientation', parentJoint = joints[index], childJoint = joints[index + 1])
 
         # Lock the container to prevent accidental edits.
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
@@ -134,7 +132,6 @@ class Blueprint:
 
         return control
 
-
     def getTranslationControl(self, jointName):
 
         return f'{jointName}_translation_control'
@@ -164,7 +161,7 @@ class Blueprint:
 
         # Setup stretchy IK using utility function.
         ikNodes = utils.basicStretchyIK(rootJoint = parentJoint, endJoint = childJoint, container = self.containerName, lockMinimumLength = False, poleVectorObject = poleVectorLocator,
-                        scaleCorrectionAttribute = None)
+                                        scaleCorrectionAttribute = None)
 
         ikHandle = ikNodes['ikHandle']
         rootLocator = ikNodes['rootLocator']
@@ -181,7 +178,10 @@ class Blueprint:
             cmds.setAttr(f'{node}.visibility', 0)
 
     def initializeModuleTransform(self, rootPos):
-        self.moduleTransform = utils.createModuleTransformControl(name = f'{self.moduleNameSpace}:module_transform')
+        controlGrpFile = os.path.join(os.environ["RIGGING_TOOL_ROOT"], 'ControlObjects/Blueprint/controlGroup_control.ma')
+        cmds.file(controlGrpFile, i = True)
+
+        self.moduleTransform = cmds.rename('controlGroup_control', f'{self.moduleNameSpace}:module_transform')
 
         cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = rootPos)
 
