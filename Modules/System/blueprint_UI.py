@@ -226,10 +226,8 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self.constrainRootToHook_btn = QtWidgets.QPushButton('Constr. \nRoot to Hook')
         self.constrainRootToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        self.constrainRootToHook_btn.setFont(buttonFont)
-
-        self.group_btn = QtWidgets.QPushButton('Group')
-        self.group_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.constrainRootToHook_btn.setFont(buttonFont)\]      self.group_btn = QtWidgets.QPushButton('Group')
+{{{{{{{{{{{{{{{{{{{{{{{{[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[y.Expanding)
         self.group_btn.setFont(buttonFont)
 
         self.ungroup_btn = QtWidgets.QPushButton('Ungroup')
