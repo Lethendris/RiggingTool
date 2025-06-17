@@ -209,7 +209,7 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self.gridWidget = QtWidgets.QWidget()
         self.gridLayout = QtWidgets.QGridLayout(self.gridWidget)
-        self.gridLayout.setSpacing(5)
+        self.gridLayout.setSpacing(2)
         self.gridLayout.setContentsMargins(5, 0, 5, 0)
 
         buttonFont = QtGui.QFont()
@@ -220,11 +220,11 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.rehook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.rehook_btn.setFont(buttonFont)
 
-        self.snapToHook_btn = QtWidgets.QPushButton('Snap To Hook')
+        self.snapToHook_btn = QtWidgets.QPushButton('Snap to\nHook')
         self.snapToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.snapToHook_btn.setFont(buttonFont)
 
-        self.constrainRootToHook_btn = QtWidgets.QPushButton('Constr. Root to Hook')
+        self.constrainRootToHook_btn = QtWidgets.QPushButton('Constr. \nRoot to Hook')
         self.constrainRootToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.constrainRootToHook_btn.setFont(buttonFont)
 

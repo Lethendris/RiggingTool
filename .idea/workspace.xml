@@ -5,14 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4e0ec84c-d7a8-48a4-8ef5-71b6794a636b" name="Changes" comment="test">
-      <change afterPath="$PROJECT_DIR$/Modules/Blueprint/module_a_new.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/RiggingTool.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/RiggingTool.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Modules/Blueprint/singleJointSegment.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/Blueprint/singleJointSegment.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Modules/System/blueprint.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/System/blueprint.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Modules/System/blueprint_UI.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/System/blueprint_UI.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Modules/System/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/System/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -212,7 +206,15 @@
       <option name="project" value="LOCAL" />
       <updated>1749962284436</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="test">
+      <option name="closed" value="true" />
+      <created>1750120456410</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1750120456410</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
