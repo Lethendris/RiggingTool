@@ -210,7 +210,6 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.setWindowTitle('Blueprint Module UI')
         # self.setMinimumSize(400, 200)
         self.setFixedSize(400,600)
-        self.setWindowFlags(self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint)
 
         # store modules directory
         self.modulesDir = modulesDir
