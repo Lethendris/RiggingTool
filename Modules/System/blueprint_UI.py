@@ -334,6 +334,8 @@ class Blueprint_UI(QtWidgets.QDialog):
             border-radius: 5px;
             border: 1px solid #2980b9;
             padding: 4px 8px;
+
+
         }
         QPushButton:hover {
             background-color: #2980b9;  /* darker blue on hover */
