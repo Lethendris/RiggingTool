@@ -8,7 +8,9 @@ MODULE_ICON = "path/to/icon.png"  # Optional
 
 import System.utils as utils
 import importlib
+
 importlib.reload(utils)
+
 
 class ModuleA:
     def __init__(self, userSpecifiedName):
@@ -19,7 +21,7 @@ class ModuleA:
             userSpecifiedName (str): Custom name to uniquely identify this module instance.
         """
 
-        self.moduleName = MODULE_NAME # Constant module base name (should be defined externally).
+        self.moduleName = MODULE_NAME  # Constant module base name (should be defined externally).
         self.userSpecifiedName = userSpecifiedName
         self.moduleNameSpace = f'{self.moduleName}__{self.userSpecifiedName}'
         self.containerName = f'{self.moduleNameSpace}:module_container'
@@ -39,9 +41,9 @@ class ModuleA:
 
         # Create groups to organize joints and visual representation.
         self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:joints_grp')
-        self.hierarchyRepresentationGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:hierarchyRepresentation_grp')
-        self.orientationControlsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:orientationControls_grp')
-        self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyRepresentationGrp, self.orientationControlsGrp, name = f'{self.moduleNameSpace}:module_grp')
+        self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:hierarchyConnectors_grp')
+        self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:orientationConnectors_grp')
+        self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, name = f'{self.moduleNameSpace}:module_grp')
 
         # Create a container and include the hierarchy.
         cmds.container(name = self.containerName, addNode = [self.moduleGrp], includeHierarchyBelow = True)
@@ -63,7 +65,7 @@ class ModuleA:
             joints.append(jointName_full)
 
             # Hide joint from view
-            cmds.setAttr(f'{jointName_full}.visibility', 0)
+            # cmds.setAttr(f'{jointName_full}.visibility', 0)
 
             # Add joint to the module container.
             utils.addNodeToContainer(self.containerName, jointName_full)
@@ -92,18 +94,13 @@ class ModuleA:
         rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
         utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
 
-
         # Create stretchy segments between each joint pair.
         for index in range(len(joints) - 1):
-            self.setupStretchyJointSegment(joints[index], joints[index + 1])
 
-
-        # NON default functionality
-        self.createOrientationControl(joints[0], joints[1])
+            self.setupStretchyJointSegment(connectorType = 'orientation', parentJoint = joints[index], childJoint = joints[index + 1])
 
         # Lock the container to prevent accidental edits.
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
-
 
     def createTranslationControlAtJoint(self, joint):
         """
@@ -116,25 +113,9 @@ class ModuleA:
             str: The name of the created control object.
         """
 
-        translationControlFile = f'{os.environ["RIGGING_TOOL_ROOT"]}/ControlObjects/Blueprint/translation_control.ma'
+        container, control = utils.createTranslationControl(name = joint)
 
-        # Import the translation control file.
-        cmds.file(translationControlFile, i = True)
-
-        try:
-            cmds.delete('sceneConfigurationScriptNode')
-        except:
-            pass
-
-        # Rename the imported container.
-        container = cmds.rename('translation_control_container', f'{joint}_translation_control_container')
         utils.addNodeToContainer(self.containerName, container)
-
-        # Rename nodes in the imported control for uniqueness.
-        for node in cmds.container(container, query = True, nodeList = True):
-            cmds.rename(node, f'{joint}_{node}', ignoreShape = True)
-
-        control = f'{joint}_translation_control'
 
         cmds.parent(control, self.moduleTransform, absolute = True)
 
@@ -155,7 +136,7 @@ class ModuleA:
 
         return f'{jointName}_translation_control'
 
-    def setupStretchyJointSegment(self, parentJoint, childJoint):
+    def setupStretchyJointSegment(self, connectorType, parentJoint, childJoint):
         """
         Set up a stretchy IK segment between a parent and child joint.
 
@@ -176,10 +157,11 @@ class ModuleA:
 
         cmds.setAttr(f'{poleVectorLocator}.visibility', 0)
         cmds.setAttr(f'{poleVectorLocator}.ty', -0.5)
+        self.createConnector(connectorType = connectorType, name = parentJoint, parentJoint = parentJoint, childJoint = childJoint)
 
         # Setup stretchy IK using utility function.
         ikNodes = utils.basicStretchyIK(rootJoint = parentJoint, endJoint = childJoint, container = self.containerName, lockMinimumLength = False, poleVectorObject = poleVectorLocator,
-                        scaleCorrectionAttribute = None)
+                                        scaleCorrectionAttribute = None)
 
         ikHandle = ikNodes['ikHandle']
         rootLocator = ikNodes['rootLocator']
@@ -195,72 +177,8 @@ class ModuleA:
             cmds.parent(node, self.jointsGrp, absolute = True)
             cmds.setAttr(f'{node}.visibility', 0)
 
-        self.createHierarchyRepresentation(parentJoint, childJoint)
-
-    def createHierarchyRepresentation(self, parentJoint, childJoint):
-
-        """
-        Visual representation for joint hierarchy between two joints.
-
-        Args:
-            parentJoint (str): Start joint of the hierarchy link.
-            childJoint (str): End joint of the hierarchy link.
-        """
-
-        nodes = self.createStretchyObject(objectRelativeFilePath = 'ControlObjects/Blueprint/hierarchy_representation.ma', objectContainerName = 'hierarchy_representation_container', objectName = 'hierarchy_representation', parentJoint = parentJoint, childJoint = childJoint)
-        constrainedGrp = nodes[2]
-
-        # Parent the visual representation group under the hierarchy group.
-        cmds.parent(constrainedGrp, self.hierarchyRepresentationGrp, relative = True)
-
-
-
-    def createStretchyObject(self, objectRelativeFilePath, objectContainerName, objectName, parentJoint, childJoint):
-        """
-        Create a stretchy object (e.g., visual line) between two joints.
-
-        Args:
-            objectRelativeFilePath (str): Relative path to the control file.
-            objectContainerName (str): Base container name for the imported object.
-            objectName (str): Name of the main control object.
-            parentJoint (str): Joint to constrain the object to.
-            childJoint (str): Joint whose translation drives the stretch.
-
-        Returns:
-            list: [container name, object name, constraint group name]
-        """
-        objectFile = os.path.join(os.environ['RIGGING_TOOL_ROOT'], objectRelativeFilePath)
-        cmds.file(objectFile, i = True)
-
-        # Rename container and nodes for uniqueness.
-        objectContainer = cmds.rename(objectContainerName, f'{parentJoint}_{objectContainerName}')
-
-        for node in cmds.container(objectContainer, query = True, nodeList = True):
-            cmds.rename(node, f'{parentJoint}_{node}', ignoreShape = True)
-
-        object = f'{parentJoint}_{objectName}'
-
-        # Group and constrain object.
-        constrainedGrp = cmds.group(empty = True, name = f'{object}_parentConstraint_grp')
-        cmds.parent(object, constrainedGrp, absolute = True)
-
-        parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)[0]
-
-        # Connect translateX to scaleX to drive stretch.
-        cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
-
-        scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
-
-        # Add to containers.
-        utils.addNodeToContainer(objectContainer, [constrainedGrp, parentConstraint, scaleConstraint], includeHierarchyBelow = True)
-        utils.addNodeToContainer(self.containerName, objectContainer)
-
-        return [objectContainer, object, constrainedGrp]
-
     def initializeModuleTransform(self, rootPos):
-        print(os.environ["RIGGING_TOOL_ROOT"])
         controlGrpFile = os.path.join(os.environ["RIGGING_TOOL_ROOT"], 'ControlObjects/Blueprint/controlGroup_control.ma')
-        print(controlGrpFile)
         cmds.file(controlGrpFile, i = True)
 
         self.moduleTransform = cmds.rename('controlGroup_control', f'{self.moduleNameSpace}:module_transform')
@@ -279,29 +197,52 @@ class ModuleA:
         cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.rotate', 'moduleTransform_R'))
         cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.globalScale', 'moduleTransform_globalScale'))
 
-    def deleteHierarchyRepresentation(self, parentJoint):
-        hieararchyContainer = f'{parentJoint}_hierarchy_representation_container'
-        cmds.delete(hieararchyContainer)
+    def createConnector(self, connectorType, name, parentJoint, childJoint):
+        """
+        Creates a visual connector between two joints, typically used to represent hierarchy links.
+
+        This function creates a stretchy visual object between the parent and child joints
+        using the specified connector type, then parents the resulting visual representation under the provided group.
+
+        Args:
+            connectorType (str): The type of visual connection to create (e.g., 'hierarchy', 'orientation').
+            parentGrp (str): The transform node under which the connector should be parented.
+            parentJoint (str): The name of the starting joint of the connection.
+            childJoint (str): The name of the ending joint of the connection.
+
+        Returns:
+            list: A list containing:
+                - container (str): The name of the container node for the created objects.
+                - control (str): The name of the main control or geometry created.
+                - constrainedGrp (str): The name of the group constrained between the two joints.
+        """
 
 
-    def createOrientationControl(self, parentJoint, childJoint):
+        if connectorType == 'orientation':
+            container, connector = utils.createOrientationConnector(name)
+            parentGrp = self.orientationConnectorsGrp
 
-        self.deleteHierarchyRepresentation(parentJoint)
+        elif connectorType == 'hierarchy':
+            container, connector = utils.createHierarchyConnector(name)
+            parentGrp = self.hierarchyConnectorsGrp
 
-        nodes = self.createStretchyObject(objectRelativeFilePath = 'ControlObjects/Blueprint/orientation_control.ma', objectContainerName = 'orientation_control_container', objectName = 'orientation_control', parentJoint = parentJoint, childJoint = childJoint)
-        orientationContainer = nodes[0]
-        orientationControl = nodes[1]
-        constrainedGrp = nodes[2]
+        # container, control, constrainedGrp = self.createStretchyObject(connectorType, parentJoint, childJoint)
+        constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstraint_grp')
+        cmds.parent(connector, constrainedGrp, absolute = True)
+        parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)[0]
 
-        cmds.parent(constrainedGrp, self.orientationControlsGrp, relative = True)
+        # Connect translateX to scaleX to drive stretch.
+        cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
 
-        parentJointWithoutNamespace = utils.stripAllNamespaces(parentJoint)[1]
-        attrName = f'{parentJointWithoutNamespace}_orientation'
-        cmds.container(orientationContainer, edit = True, publishAndBind = (f'{orientationControl}.rotateX', attrName))
-        cmds.container(self.containerName, edit = True, publishAndBind = (f'{orientationContainer}.{attrName}', attrName))
+        scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
 
-        return orientationControl
+        cmds.parent(constrainedGrp, parentGrp, relative = True)
 
+        # Add to containers.
+        utils.addNodeToContainer(container, [constrainedGrp, parentConstraint, scaleConstraint], includeHierarchyBelow = True)
+        utils.addNodeToContainer(self.containerName, container)
 
+        # Parent the visual representation group under the hierarchy group.
+        # cmds.parent(constrainedGrp, parentGrp, relative = True)
 
-
+        return [container, connector, constrainedGrp]

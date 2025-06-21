@@ -1,6 +1,53 @@
-from codecs import replace_errors
-
+import os
 import maya.cmds as cmds
+import importlib
+
+
+def getPythonFiles(directory):
+    return [f for f in os.listdir(directory) if f.endswith('.py') and os.path.isfile(os.path.join(directory, f))]
+
+
+
+def loadAllModulesFromDirectory(directory):
+    """
+    Loads all Python modules from the specified directory and returns their metadata.
+
+    :param directory: Path to the directory containing Python files.
+    :return: Dictionary where keys are module names and values are dicts with:
+             {
+                 'module': <module object>,
+                 'name': <MODULE_NAME or file name>,
+                 'description': <MODULE_DESCRIPTION or default>,
+                 'icon': <MODULE_ICON or empty string>
+             }
+    """
+    if not directory or not os.path.isdir(directory):
+        print(f"Error: Invalid module directory: {directory}")
+        return {}
+
+    loadedModules = {}
+
+    for fileName in getPythonFiles(directory):
+        modulePath = os.path.join(directory, fileName)
+        moduleName = os.path.splitext(fileName)[0]
+
+
+        try:
+            spec = importlib.util.spec_from_file_location(moduleName, modulePath)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            loadedModules[moduleName] = {
+                'name' : getattr(module, 'MODULE_NAME', moduleName),
+                'module': module,
+                'description': getattr(module, 'MODULE_DESCRIPTION', 'No description available'),
+                'icon': getattr(module, 'MODULE_ICON', '')
+            }
+
+        except Exception as e:
+            print(f'Error loading module {moduleName}: {str(e)}')
+
+    return loadedModules
 
 
 def findHighestTrailingNumber(names, baseName):
@@ -204,7 +251,7 @@ def forceSceneUpdate():
     cmds.setToolTo('selectSuperContext')
 
 
-def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includeShapes = False, force = False):
+def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includeShapes = True, includeShaders = True, force = False):
     """
     Adds specified nodes to a Maya container, optionally including hierarchy or shapes.
 
@@ -212,7 +259,8 @@ def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includ
         container (str): The name of the container node.
         nodesIn (list or str): Node(s) to add to the container.
         includeHierarchyBelow (bool): Include entire node hierarchies below the specified nodes.
-        includeShapes (bool): Include shape nodes in addition to transform nodes.
+        includeShapes (bool): Include shape nodes.
+        includeShaders (bool): Include shader nodes.
         force (bool): Force addition even if some nodes are already in the container.
     """
 
@@ -223,13 +271,27 @@ def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includ
         nodes = [nodesIn]
 
     # Add any connected unitConversion nodes
-    conversionNodes = []
-    for node in nodes:
-        node_conversionNodes = cmds.listConnections(node, source = True, destination = True, type = 'unitConversion')
+    # conversionNodes = []
+    # for node in nodes:
+    #     node_conversionNodes = cmds.listConnections(node, source = True, destination = True, type = 'unitConversion')
+    #
+    # nodes.extend(conversionNodes)
+    cmds.container(container, edit = True, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShapes = includeShapes, includeShaders = True, force = force)
 
-    nodes.extend(conversionNodes)
-    cmds.container(container, edit = True, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShapes = includeShapes, force = force)
+def createContainer(name, nodesIn, includeHierarchyBelow = True, includeShaders = True, includeNetwork = True, includeTransform = True, includeShapes = True):
+    if isinstance(nodesIn, list):
+        nodes = list(nodesIn)
 
+    else:
+        nodes = [nodesIn]
+
+    container = cmds.container(name = name, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShaders = includeShaders, includeNetwork = includeNetwork, includeTransform = includeTransform, includeShapes = includeShapes)
+    hyperLayout = cmds.listConnections(container, type = 'hyperLayout')
+    hyperLayout = cmds.rename(hyperLayout, f'{name}_hyperLayout')
+
+    cmds.container(name = container, edit = True, addNode = [hyperLayout])
+
+    return container
 
 def assignMaterial(obj, color = (1, 0, 0), diffuse = 0.2):
     """
@@ -289,7 +351,7 @@ def createTranslationControl(name):
     material, materialInfo = assignMaterial(control, color = (1, 0, 0))
 
     # Create container and add nodes
-    container = cmds.container(name = f'{name}_translation_container', addNode = (control, material, materialInfo))
+    container = createContainer(name = f'{name}_translation_container', nodesIn = [control, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeNetwork = True, includeTransform = True, includeShapes = True)
 
     return [container, control]
 
@@ -305,71 +367,105 @@ def createOrientationConnector(name):
         tuple: (controlObject, materialNode, materialInfoNode, containerNode)
     """
 
-    # Create control sphere
-    cube = cmds.polyCube(name = 'y_cube', width = 1, height = 1, depth = 0.1, ch = False)[0]
-    cmds.move(0.5, 0, 0, f'{cube}.f[5]', relative = True)
-    cmds.move(0.5, 0, 0, f'{cube}.f[4]', relative = True)
+    # Create Y axis object
+    y_cube = cmds.polyCube(name = f'{name}_y_cube', width = 1, height = 1, depth = 0.1, ch = False)[0]
+    cmds.move(0.5, 0, 0, f'{y_cube}.f[5]', relative = True)
+    cmds.move(0.5, 0, 0, f'{y_cube}.f[4]', relative = True)
 
-    cone = cmds.polyCone(name = 'y_cone', sx = 8, sy = 1, sz = 0, r = 0.05, h = 0.2, heightBaseline = -1, ch = False)[0]
-    cmds.move(0.5, 0.5, 0, cone, relative = True)
 
-    y_orientation_connector = cmds.polyUnite(cube, cone, name = f'y_{name}', ch = False)[0]
-    y_material, y_materialInfo = assignMaterial(y_orientation_connector, color = (0, 1, 0), diffuse = 0.2)
+    y_cone = cmds.polyCone(name = f'{name}_y_cone', sx = 8, sy = 1, sz = 0, r = 0.05, h = 0.2, heightBaseline = -1, ch = False)[0]
+    y_coneShape = cmds.listRelatives(y_cone, shapes = True, fullPath = True)
+    cmds.move(0.5, 0.5, 0, f'{y_cone}.vtx[0:8]', relative = True)
 
-    # create X axis object
-    z_orientation_connector = cmds.duplicate(y_orientation_connector, name = f'z_{name}')[0]
-    cmds.rotate(90, 0, 0, z_orientation_connector, relative = True)
-    z_material, z_materialInfo = assignMaterial(z_orientation_connector, color = (0, 0, 1), diffuse = 0.2)
+    cmds.parent(y_coneShape, y_cube, shape = True, relative = True, noConnections = True)
+    cmds.delete(y_cone)
 
-    connector = cmds.polyUnite(y_orientation_connector, z_orientation_connector, name = f'{name}_orientation_connector', ch = False)[0]
+    y_material, y_materialInfo = assignMaterial(y_cube, color = (0, 1, 0), diffuse = 0.2)
+
+    # Create Z axis object
+    z_cube = cmds.polyCube(name = f'{name}_z_cube', width = 1, height = 1, depth = 0.1, ch = False)[0]
+    cmds.rotate(90, 0, 0, f'{z_cube}.vtx[0:7]', relative = True)
+
+    cmds.move(0.5, 0, 0, f'{z_cube}.vtx[0:7]', relative = True)
+
+
+    z_cone = cmds.polyCone(name = f'{name}_z_cone', sx = 8, sy = 1, sz = 0, r = 0.05, h = 0.2, heightBaseline = -1, ch = False)[0]
+    z_coneShape = cmds.listRelatives(z_cone, shapes = True, fullPath = True)
+    cmds.rotate(90, 0, 0, f'{z_cone}.vtx[0:8]', relative = True, pivot = (0, 0, 0))
+    cmds.move(0.5 , 0, 0.5, f'{z_cone}.vtx[0:8]', relative = True)
+
+    cmds.parent(z_coneShape, z_cube, shape = True, relative = True, noConnections = True)
+
+
+    z_material, z_materialInfo = assignMaterial(z_cube, color = (0, 0, 1), diffuse = 0.2)
+    for shape in cmds.listRelatives(z_cube, shapes = True, fullPath = True):
+        cmds.parent(shape, y_cube, shape = True, relative = True, noConnections = True)
+
+    cmds.delete(z_cube, z_cone)
+    connector = cmds.rename(y_cube, f'{name}_orientation_connector', ignoreShape = True)
 
     # Create container and add nodes
-    container = cmds.container(name = f'{name}_orientation_container', addNode = (connector, y_material, y_materialInfo, z_material, z_materialInfo))
+    container = createContainer(name = f'{name}_orientation_container', nodesIn = [connector, y_material, y_materialInfo, z_material, z_materialInfo], includeHierarchyBelow = True, includeShaders = True, includeNetwork = True, includeTransform = True, includeShapes = True)
 
     return [container, connector]
 
 def createHierarchyConnector(name):
     cylinder = cmds.polyCylinder(name = f'{name}_cylinder', sx = 8, sy = 1, sz = 1, height = 1, radius = 0.2, heightBaseline = -1, ch = False)[0]
     cmds.delete(f'{cylinder}.f[8:23]')
-    cmds.rotate(0, 0, -90, cylinder, relative = True)
+
+    cmds.rotate(0, 0, -90, f'{cylinder}.vtx[0:15]', relative = True, pivot = (0, 0, 0))
+
 
     cone = cmds.polyCone(name = f'{name}_cone', sx = 8, sy = 1, sz = 0, r = 0.75, h = 0.2, heightBaseline = -1, ch = False)[0]
-    cmds.rotate(0, 0, -90, cone, relative = True)
-    cmds.move(0.4, 0, 0, cone, relative = True)
+    coneShape = cmds.listRelatives(cone, shapes = True, fullPath = True)[0]
 
-    connector = cmds.polyUnite(cylinder, cone, name = f'{name}_hierarchy_connector', ch = False)[0]
-    material, materialInfo = assignMaterial(connector, color = (1.0, 0.8, 0), diffuse = 0.2)
+    cmds.rotate(0, 0, -90, f'{cone}.vtx[0:8]', relative = True)
+
+    cmds.move(0.4, 0, 0, f'{cone}.vtx[0:8]', relative = True)
+
+    cmds.parent(coneShape, cylinder, shape = True, relative = True, noConnections = True)
+
+    material, materialInfo = assignMaterial(cylinder, color = (1.0, 0.8, 0), diffuse = 0.2)
+
+    cmds.delete(cone)
+    connector = cmds.rename(cylinder, f'{name}_hierarchy_connector', ignoreShape = True)
 
     # Create container and add nodes
-    container = cmds.container(name = f'{name}_hierarchy_container', addNode = (connector, material, materialInfo))
+    container = createContainer(name = f'{name}_hierarchy_container', nodesIn = [connector, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeNetwork = True, includeTransform = True, includeShapes = True)
 
     return [container, connector]
 
+
 def createModuleTransformControl(name):
-    mainCube = cmds.polyCube(name = f'{name}_mainCube', width = 2, height = 2, depth = 2, ch = False)[0]
+    control = cmds.polyCube(name = name, width = 2, height = 2, depth = 2, ch = False)[0]
 
     cubeX = cmds.polyCube(name = f'{name}_cubeX', width = 3, height = 3, depth = 3, ch = False)[0]
-    cmds.move(0, 0, -1.5, f'{cubeX}.f[0]', relative = True)
-    cmds.move(0, 0, 1.5, f'{cubeX}.f[2]', relative = True)
-    cmds.move(0, -1.5, 0, f'{cubeX}.f[1]', relative = True)
-    cmds.move(0, 1.5, 0, f'{cubeX}.f[3]', relative = True)
+    cubeXShape = cmds.listRelatives(cubeX, shapes = True, fullPath = True)[0]
+    cmds.move(0, 0, -1.5, f'{cubeXShape}.f[0]', relative = True)
+    cmds.move(0, 0, 1.5, f'{cubeXShape}.f[2]', relative = True)
+    cmds.move(0, -1.5, 0, f'{cubeXShape}.f[1]', relative = True)
+    cmds.move(0, 1.5, 0, f'{cubeXShape}.f[3]', relative = True)
 
     cubeY = cmds.polyCube(name = f'{name}_cubeY', width = 3, height = 3, depth = 3, ch = False)[0]
-    cmds.move(-1.5, 0, 0, f'{cubeY}.f[4]', relative = True)
-    cmds.move(1.5, 0, 0, f'{cubeY}.f[5]', relative = True)
-    cmds.move(0, 0, -1.5, f'{cubeY}.f[0]', relative = True)
-    cmds.move(0, 0, 1.5, f'{cubeY}.f[2]', relative = True)
+    cubeYShape = cmds.listRelatives(cubeY, shapes = True, fullPath = True)[0]
+    cmds.move(-1.5, 0, 0, f'{cubeYShape}.f[4]', relative = True)
+    cmds.move(1.5, 0, 0, f'{cubeYShape}.f[5]', relative = True)
+    cmds.move(0, 0, -1.5, f'{cubeYShape}.f[0]', relative = True)
+    cmds.move(0, 0, 1.5, f'{cubeYShape}.f[2]', relative = True)
 
     cubeZ = cmds.polyCube(name = f'{name}_cubeZ', width = 3, height = 3, depth = 3, ch = False)[0]
-    cmds.move(-1.5, 0, 0, f'{cubeZ}.f[4]', relative = True)
-    cmds.move(1.5, 0, 0, f'{cubeZ}.f[5]', relative = True)
-    cmds.move(0, -1.5, 0, f'{cubeZ}.f[1]', relative = True)
-    cmds.move(0, 1.5, 0, f'{cubeZ}.f[3]', relative = True)
+    cubeZShape = cmds.listRelatives(cubeZ, shapes = True, fullPath = True)[0]
+    cmds.move(-1.5, 0, 0, f'{cubeZShape}.f[4]', relative = True)
+    cmds.move(1.5, 0, 0, f'{cubeZShape}.f[5]', relative = True)
+    cmds.move(0, -1.5, 0, f'{cubeZShape}.f[1]', relative = True)
+    cmds.move(0, 1.5, 0, f'{cubeZShape}.f[3]', relative = True)
 
-    control = cmds.polyUnite(mainCube, cubeX, cubeY, cubeZ, name = name, ch = False)[0]
-    shapeNode = cmds.listRelatives(control, shapes = True)[0]
+    cmds.parent(cubeXShape, cubeYShape, cubeZShape, control, shape = True, relative = True, noConnections = True)
+    cmds.delete(cubeX, cubeY, cubeZ)
 
-    cmds.setAttr(f'{shapeNode}.overrideEnabled', 1)
-    cmds.setAttr(f'{shapeNode}.overrideShading', 0)
+    for shape in cmds.listRelatives(name, shapes = True, fullPath = True):
+        cmds.setAttr(f'{shape}.overrideEnabled', 1)
+        cmds.setAttr(f'{shape}.overrideShading', 0)
 
     return control
+

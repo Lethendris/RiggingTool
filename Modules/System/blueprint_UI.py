@@ -102,14 +102,15 @@ class ModuleWidget(QtWidgets.QWidget):
 
 
     def setupUI(self):
-        # create layout
+        
+        # MAIN LAYOUT
         self.mainLayout = QtWidgets.QHBoxLayout(self)
         self.mainLayout.setContentsMargins(5, 0, 5, 0)
         self.mainLayout.setSpacing(5)
+        self.setFixedHeight(90)
 
-        # create widgets
-        # image button
-        self.imageButton = RoundedIconButton()
+        # WIDGETS
+        self.imageButton = RoundedIconButton() # image button
         self.imageButton.setFixedSize(64, 64)
         self.imageButton.setIconSize(QtCore.QSize(64, 64))
         self.imageButton.setStyleSheet("""
@@ -129,58 +130,52 @@ class ModuleWidget(QtWidgets.QWidget):
                 border-color: #1abc9c;
             }
         """)
-
-
-        # set icon for button if available
-        if self.iconPath and os.path.exists(self.iconPath):
+        
+        if self.iconPath and os.path.exists(self.iconPath): # set icon for button if available
             icon = QtGui.QIcon(self.iconPath)
             self.imageButton.setIcon(icon)
         else:
-            # default icon
-            self.imageButton.setText('Icon')
+            
+            self.imageButton.setText('Icon') # default icon
+        
+        
+        self.nameLabel = QtWidgets.QLabel(self.moduleName) # module name label
 
-        # module name label
-        self.nameLabel = QtWidgets.QLabel(self.moduleName)
-
-        # module description field
-        self.moduleField = QtWidgets.QVBoxLayout()
-        self.moduleField.setContentsMargins(5, 0, 0, 0)
-
-        # Description text field
-        self.descriptionField = NonInteractivePlainTextEdit(self.description)
+        self.descriptionField = NonInteractivePlainTextEdit(self.description) # Description text field
         self.descriptionField.setFixedHeight(64)
-
-        # add widgets
+        
+        # CREATE LAYOUTS
+        self.moduleField = QtWidgets.QVBoxLayout() # module description layout
+        self.moduleField.setContentsMargins(5, 0, 0, 0)
+        
+        
+        # ADD WIDGETS
         self.mainLayout.addWidget(self.imageButton, alignment = QtCore.Qt.AlignBottom)
         self.moduleField.addWidget(self.nameLabel, alignment = QtCore.Qt.AlignCenter)
         self.moduleField.addWidget(self.descriptionField)
 
+        # CONNECT WIDGETS
+        self.imageButton.clicked.connect(self.moduleImageButtonClicked)
+        
+        # ADD TO MAIN LAYOUT
         self.mainLayout.addLayout(self.moduleField)
 
-        # Set a fixed height for consistency
-        self.setFixedHeight(90)
-
-        # connect widgets
-        # Connect button click event
-        self.imageButton.clicked.connect(self.onIconClicked)
-
-    def onIconClicked(self):
+        
+    def moduleImageButtonClicked(self):
         self.installModule()
 
     def installModule(self):
         baseName = 'instance_'
 
         cmds.namespace(setNamespace = ':')
-        namespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
+        rawNamespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
 
+        # Strip prefix before '__' if present
+        strippedNamespaces = [ns.partition('__')[2] if '__' in ns else ns for ns in rawNamespaces]
 
-        for i in range(len(namespaces)):
-            if namespaces[i].find('__') != -1:
-                namespaces[i] = namespaces[i].partition('__')[2]
+        newSuffix = utils.findHighestTrailingNumber(strippedNamespaces, baseName) + 1
 
-        newSuffix = utils.findHighestTrailingNumber(namespaces, baseName) + 1
-
-        userSpecifiedName = f'{baseName}{str(newSuffix)}'
+        userSpecifiedName = f'{baseName}{newSuffix}'
 
 
         if self.moduleObject and hasattr(self.moduleObject, self.moduleName):
@@ -188,11 +183,9 @@ class ModuleWidget(QtWidgets.QWidget):
             moduleInstance = moduleClass(userSpecifiedName)
             moduleInstance.install()
 
-            moduleTransform = f'{self.moduleName}__{userSpecifiedName}:module_transform'
-            cmds.select(moduleTransform)
-            cmds.setToolTo('moveSuperContext')
-
-
+            # moduleTransform = f'{self.moduleName}__{userSpecifiedName}:module_transform'
+            # cmds.select(moduleTransform)
+            # cmds.setToolTo('moveSuperContext')
 
 class Blueprint_UI(QtWidgets.QDialog):
 
@@ -205,32 +198,41 @@ class Blueprint_UI(QtWidgets.QDialog):
             except:
                 pass
 
-        super().__init__(parent = parent)
-
-        self.setWindowTitle('Blueprint Module UI')
-        # self.setMinimumSize(400, 200)
-        self.setFixedSize(400,600)
-
-        # store modules directory
         self.modulesDir = modulesDir
 
-        # loaded modules
-        self.loadedModules = {}
+        super().__init__(parent = parent)
 
+        # MAIN WINDOW FLAGS
+        self.setWindowTitle('Blueprint Module UI')
+        self.setFixedSize(400,600)
+
+        # SETUP UI
         self.setupUI()
 
-        # Load modules if directory is provided
+        # LOAD MODULES
+
         if self.modulesDir:
-            self.loadModulesFromFileDirectory()
+
+            self.loadedModules = utils.loadAllModulesFromDirectory(self.modulesDir)  # Load modules if directory is provided
+
+            self.addModuleToUI()
+
+    def createHLine(self):
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        line.setLineWidth(1)
+        line.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        return line
 
     def setupUI(self):
 
-        # main layout
+        # MAIN LAYOUT
         self.mainLayout = QtWidgets.QVBoxLayout(self)
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.mainLayout.setSpacing(5)
 
-        # tab widget
+        # CREATE WIDGETS
         self.tabWidget = QtWidgets.QTabWidget()
         self.tabWidget.setStyleSheet("""
         QTabWidget::pane {
@@ -245,7 +247,7 @@ class Blueprint_UI(QtWidgets.QDialog):
             border: 1px solid #444;
             border-top-left-radius: 6px;
             border-top-right-radius: 6px;
-            padding: 8px 16px;
+            padding: 5px 16px;
             margin-right: 2px;
             font: bold 12px;
         }
@@ -261,61 +263,98 @@ class Blueprint_UI(QtWidgets.QDialog):
         }
         """)
 
-        # modules tab
         self.modulesTab = QtWidgets.QWidget()
+        self.tabWidget.addTab(self.modulesTab, 'Modules')
 
-
-        self.modulesTabLayout = QtWidgets.QVBoxLayout(self.modulesTab)
-        self.modulesTabLayout.setContentsMargins(0, 0, 0, 0)
-        self.modulesTabLayout.setSpacing(5)
-
-
-        # scroll area
         self.scrollArea = QtWidgets.QScrollArea()
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setFrameShape(QtWidgets.QFrame.Box)
         self.scrollArea.setFixedHeight(300)
 
         self.scrollWidget = QtWidgets.QWidget()
+
+        self.moduleInstanceNameLabel = QtWidgets.QLabel('Module Instance:')
+        self.moduleInstanceLineEdit = QtWidgets.QLineEdit()
+
+        self.symmetryCheckbox = QtWidgets.QCheckBox('Symmetry Move')
+
+        buttonFont = QtGui.QFont()
+        buttonFont.setPointSize(12)
+        buttonFont.setBold(True)
+
+        self.lockButton = QtWidgets.QPushButton('LOCK')
+        self.lockButton.setStyleSheet("""
+                                QPushButton {
+                                    background-color: #216091;  /* solid blue */
+                                    color: white;
+                                    border-radius: 5px;
+                                    padding: 4px 8px;
+
+                                }
+                                QPushButton:hover {
+                                    background-color: #063A62;  /* darker blue on hover */
+                                }
+                                QPushButton:pressed {
+                                    background-color: #032947;  /* even darker when pressed */
+                                }
+                                """)
+        self.lockButton.setFont(buttonFont)
+        self.lockButton.setFixedSize(64, 64)
+
+        self.publishButton = QtWidgets.QPushButton('PUBLISH')
+        self.publishButton.setStyleSheet("""
+                        QPushButton {
+                            background-color: #68B159;  /* solid blue */
+                            color: white;
+                            border-radius: 5px;
+                            padding: 4px 8px;
+
+
+                        }
+                        QPushButton:hover {
+                            background-color: #216A12;  /* darker blue on hover */
+                        }
+                        QPushButton:pressed {
+                            background-color: #0C4700;  /* even darker when pressed */
+                        }
+                        """)
+        self.publishButton.setFont(buttonFont)
+        self.publishButton.setFixedHeight(64)
+
+        # CREATE LAYOUTS
+        self.modulesTabLayout = QtWidgets.QVBoxLayout(self.modulesTab)
+        self.modulesTabLayout.setContentsMargins(0, 0, 0, 0)
+        self.modulesTabLayout.setSpacing(5)
+
         self.scrollLayout = QtWidgets.QVBoxLayout(self.scrollWidget)
         self.scrollLayout.setContentsMargins(5, 5, 5, 5)
-
         self.scrollLayout.setSpacing(5)
         self.scrollLayout.setAlignment(QtCore.Qt.AlignTop)
 
-        # Add spacer at the bottom to push widgets to the top
-        spacer = QtWidgets.QSpacerItem(
-            20, 40,
-            QtWidgets.QSizePolicy.Minimum,
-            QtWidgets.QSizePolicy.Expanding
-        )
-        self.scrollLayout.addItem(spacer)
-
-        # Set the scroll widget as the scroll area's widget
-        self.scrollArea.setWidget(self.scrollWidget)
-        self.modulesTabLayout.addWidget(self.scrollArea)
-
-        line = QtWidgets.QFrame()
-        line.setFrameShape(QtWidgets.QFrame.HLine)
-        line.setFrameShadow(QtWidgets.QFrame.Sunken)
-        line.setLineWidth(1)
-        self.modulesTabLayout.addWidget(line)
-
         self.moduleInstanceNameLayout = QtWidgets.QHBoxLayout()
-        self.moduleInstanceNameLabel = QtWidgets.QLabel('Module Instance:')
-        self.moduleInstanceLineEdit = QtWidgets.QLineEdit()
-        self.moduleInstanceNameLayout.addWidget(self.moduleInstanceNameLabel)
-        self.moduleInstanceNameLayout.addWidget(self.moduleInstanceLineEdit)
 
-        self.modulesTabLayout.addLayout(self.moduleInstanceNameLayout)
-        self.modulesTabLayout.addWidget(line)
-
-        # self.gridWidget = QtWidgets.QWidget()
         self.gridLayout = QtWidgets.QGridLayout()
         self.gridLayout.setSpacing(8)
         self.gridLayout.setContentsMargins(8, 8, 8, 8)
 
-        # Define buttons with text and position (row, column)
+        self.bottomButtonLayout = QtWidgets.QHBoxLayout()
+
+        # ADD WIDGETS
+        self.scrollArea.setWidget(self.scrollWidget)
+
+        self.modulesTabLayout.addWidget(self.scrollArea)
+
+        self.moduleInstanceNameLayout.addWidget(self.moduleInstanceNameLabel)
+        self.moduleInstanceNameLayout.addWidget(self.moduleInstanceLineEdit)
+
+        self.gridLayout.addWidget(self.symmetryCheckbox, 2, 2)
+
+        self.bottomButtonLayout.addWidget(self.lockButton)
+        self.bottomButtonLayout.addWidget(self.publishButton)
+
+        self.mainLayout.addWidget(self.tabWidget)
+
+        # ADD BUTTONS TO GRID LAYOUT
         buttonDefs = [
             ('Rehook', 0, 0),
             ('Snap Root > Hook', 0, 1),
@@ -354,154 +393,69 @@ class Blueprint_UI(QtWidgets.QDialog):
             self.gridLayout.addWidget(btn, row, col)
             self.buttons[text] = btn
 
-        self.symmetryCheckbox = QtWidgets.QCheckBox('Symmetry Move')
-
-
-        self.gridLayout.addWidget(self.symmetryCheckbox, 2, 2)
-
-
-        # Add the grid layout to the parent layout
+        # ADD TO MAIN LAYOUT
+        self.modulesTabLayout.addLayout(self.moduleInstanceNameLayout)
+        self.modulesTabLayout.addWidget(self.createHLine())
         self.modulesTabLayout.addLayout(self.gridLayout)
+        self.modulesTabLayout.addWidget(self.createHLine())
+        self.modulesTabLayout.addLayout(self.bottomButtonLayout)
 
-        self.modulesTabLayout.addWidget(line)
+        # CONNECT WIDGETS
+        self.lockButton.clicked.connect(self.lockClicked)
 
-        buttonFont = QtGui.QFont()
-        buttonFont.setPointSize(11)
-        buttonFont.setBold(True)
+    def lockClicked(self):
+        reply = QtWidgets.QMessageBox.question(self, "Lock Blueprints?", "Locking the character will convert current blueprint modules to joints.This action cannot be undone. Modifications to the blueprint system cannot be made after this point.\nDo you want to continue?", QtWidgets.QMessageBox.StandardButton.Ok | QtWidgets.QMessageBox.StandardButton.Cancel)
 
-        self.lockButton = QtWidgets.QPushButton('Lock')
-        self.lockButton.setStyleSheet(roundedCornersStyle)
-        self.publishButton = QtWidgets.QPushButton('PUBLISH')
-        self.publishButton.setFont(buttonFont)
-
-        self.publishButton.setStyleSheet(roundedCornersStyle)
-        self.publishButton.setFixedHeight(50)
-
-
-        self.modulesTabLayout.addWidget(self.lockButton)
-        self.modulesTabLayout.addWidget(self.publishButton)
-        # self.modulesTabLayout.addStretch()
-
-        # buttonFont = QtGui.QFont()
-        # buttonFont.setPointSize(11)
-        # buttonFont.setBold(True)
-
-        # self.rehook_btn = QtWidgets.QPushButton('Rehook')
-        # self.rehook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        # self.rehook_btn.setFont(buttonFont)
-        #
-        # self.snapToHook_btn = QtWidgets.QPushButton('Snap to\nHook')
-        # self.snapToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        # self.snapToHook_btn.setFont(buttonFont)
-        #
-        # self.constrainRootToHook_btn = QtWidgets.QPushButton('Constrain\nRoot to Hook')
-        # self.constrainRootToHook_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        # self.constrainRootToHook_btn.setFont(buttonFont)
-        #
-        # self.group_btn = QtWidgets.QPushButton('Group')
-        # self.group_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        # self.group_btn.setFont(buttonFont)
-        #
-        # self.ungroup_btn = QtWidgets.QPushButton('Ungroup')
-        # self.ungroup_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        # self.ungroup_btn.setFont(buttonFont)
-        #
-        # self.mirror_btn = QtWidgets.QPushButton('Mirror')
-        # self.mirror_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        # self.mirror_btn.setFont(buttonFont)
-        #
-        # self.delete_btn = QtWidgets.QPushButton('Delete')
-        # self.delete_btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        # self.delete_btn.setFont(buttonFont)
-        #
-        #
-        # self.gridLayout.addWidget(self.rehook_btn, 0, 0)
-        # self.gridLayout.addWidget(self.snapToHook_btn, 0, 1)
-        # self.gridLayout.addWidget(self.constrainRootToHook_btn, 0, 2)
-        # self.gridLayout.addWidget(self.group_btn, 1, 0)
-        # self.gridLayout.addWidget(self.ungroup_btn, 1, 1)
-        # self.gridLayout.addWidget(self.mirror_btn, 1, 2)
-        # self.gridLayout.addWidget(self.delete_btn, 2, 1)
-        #
-        # # Make the grid occupy vertical space
-        # self.gridWidget.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
-        #
-        #
-        # self.modulesTabLayout.addWidget(self.gridWidget, stretch = 1)
-        #
-        # self.lockButton = QtWidgets.QPushButton("LOCK")
-        # self.lockButton.setFixedHeight(30)
-        # self.lockButton.setFont(buttonFont)
-        # self.publishButton = QtWidgets.QPushButton("PUBLISH")
-        # self.publishButton.setFixedHeight(40)
-        # self.publishButton.setFont(buttonFont)
-        #
-        #
-        # self.modulesTabLayout.addWidget(self.lockButton)
-        # self.modulesTabLayout.addWidget(self.publishButton)
-
-        self.tabWidget.addTab(self.modulesTab, 'Modules')
-
-        self.mainLayout.addWidget(self.tabWidget)
-
-        # Set the dialog's background color to match Maya's UI
-        self.setAutoFillBackground(True)
-        palette = self.palette()
-        self.setPalette(palette)
-
-    def loadModulesFromFileDirectory(self):
-        """Load all Python modules from the specified directory"""
-        if not self.modulesDir or not os.path.isdir(self.modulesDir):
-            print(f'Error: Invalid modules directory: {self.modulesDir}')
+        if reply == QtWidgets.QMessageBox.StandardButton.Cancel:
             return
+        else:
+            moduleInfo = []
 
-        # clear modules
-        self.clearModules()
+            cmds.namespace(setNamespace = ':')
+            namespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
 
-        # Find all Python files in the directory
-        for fileName in os.listdir(self.modulesDir):
-            if fileName.endswith('.py') and not fileName.startswith('__'):
-                modulePath = os.path.join(self.modulesDir, fileName)
-                moduleName = os.path.splitext(fileName)[0]
+            validModules = [module for module in utils.loadAllModulesFromDirectory(self.modulesDir).keys()]
+            validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(self.modulesDir).values()]
 
-                try:
-                    # import module dynamically
-                    moduleSpec = importlib.util.spec_from_file_location(moduleName, modulePath)
-                    module = importlib.util.module_from_spec(moduleSpec)
-                    moduleSpec.loader.exec_module(module)
+            for n in namespaces:
+                splitString = n.partition('__')
 
-                    # extract module metadata
-                    name = getattr(module, 'MODULE_NAME', moduleName)
-                    description = getattr(module, 'MODULE_DESCRIPTION', 'No description available')
-                    iconPath = getattr(module, 'MODULE_ICON', '')
+                if splitString[1] != '':
+                    module = splitString[0]
+                    userSpecifiedName = splitString[2]
 
-                    # add module to UI
-                    self.addModule(name, description, iconPath, module)
+                    if module in validModuleNames:
+                        index = validModuleNames.index(module)
+                        moduleInfo.append([validModules[index], userSpecifiedName])
 
-                    self.loadedModules[moduleName] = module
+            if len(moduleInfo) == 0:
+                QtWidgets.QMessageBox.information(None, "Lock Blueprints?", "There is no blueprint module instance in the current scene.\nAborting Lock.")
 
-                except Exception as e:
-                    print(f'Error loading module {moduleName}: {str(e)}')
 
-    def addModule(self, name, description, iconPath = '', moduleObject = None):
-        """Add a new module to the UI"""
-        moduleWidget = ModuleWidget(name, description, iconPath, moduleObject)
 
-        # Insert before the spacer (which is the last item)
-        self.scrollLayout.insertWidget(self.scrollLayout.count() - 1, moduleWidget)
 
-        return moduleWidget
+            # for module, data in utils.loadAllModulesFromDirectory(self.modulesDir).items():
+            #     print (module, data['name'])
 
-    def clearModules(self):
-        """Clear all modules from the UI"""
-        # Remove all widgets except the spacer at the end
-        while self.scrollLayout.count() > 1:
-            item = self.scrollLayout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
 
-        # Clear the loaded modules dictionary
-        self.loadedModules.clear()
+
+    def addModuleToUI(self):
+        """
+        Adds all loaded modules to the UI by creating a ModuleWidget for each
+        and inserting it before the spacer item in the scroll layout.
+        """
+
+        insertIndex = self.scrollLayout.count() - 1  # index before spacer
+
+        for moduleData in self.loadedModules.values():
+            moduleWidget = ModuleWidget(
+                moduleData['name'],
+                moduleData['description'],
+                moduleData['icon'],
+                moduleData['module']
+            )
+            self.scrollLayout.insertWidget(insertIndex, moduleWidget)
+
 
     @classmethod
     def showUI(cls, modulesDir=None):

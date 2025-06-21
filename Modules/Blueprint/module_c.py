@@ -1,9 +1,8 @@
-MODULE_NAME = "Module C"
+MODULE_NAME = "ModuleC"
 MODULE_DESCRIPTION = ("Module C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C Description"
                       "Module C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C Description"
                       "Module C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C DescriptionModule C Description")
 MODULE_ICON = "path/to/icon.png"  # Optional
 
-def module_function():
-    # Function that runs when the icon is clicked
-    print('module_c')
+class ModuleC:
+    pass

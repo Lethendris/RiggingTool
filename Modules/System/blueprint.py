@@ -30,14 +30,15 @@ class Blueprint:
 
     # BASE CLASS METHODS
     def install(self):
+
         """
         Set up the module in the Maya scene by creating joints, control groups,
         containers, and applying stretchy IK functionality.
         """
 
         # Ensure we’re in the root namespace and create a unique one for this module.
-        cmds.namespace(setNamespace = ':')
-        cmds.namespace(addNamespace = self.moduleNameSpace)
+        # cmds.namespace(setNamespace = ':')
+        # cmds.namespace(addNamespace = self.moduleNameSpace)
 
         # Create groups to organize joints and visual representation.
         self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:joints_grp')
@@ -46,7 +47,7 @@ class Blueprint:
         self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, name = f'{self.moduleNameSpace}:module_grp')
 
         # Create a container and include the hierarchy.
-        cmds.container(name = self.containerName, addNode = [self.moduleGrp], includeHierarchyBelow = True)
+        utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)
 
         cmds.select(clear = True)
 
@@ -92,6 +93,8 @@ class Blueprint:
         # Constrain root joint to its translation control.
 
         rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
+
+
         utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
 
 
