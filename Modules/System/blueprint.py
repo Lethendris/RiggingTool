@@ -145,6 +145,63 @@ class Blueprint:
         cmds.setAttr(f'{settingsLocator}.visibility', 0)
 
         cmds.addAttr(settingsLocator, attributeType = 'enum', longName = 'activeModule', enumName = 'None:', keyable = False)
+        cmds.addAttr(settingsLocator, attributeType = 'float', longName = 'creationPoseWeight', defaultValue = 1, keyable = False)
+        
+        utilityNodes = []
+
+        for index, joint in enumerate(newJoints):
+            if index < (numJoints - 1) or numJoints == 1:
+                addNode = cmds.createNode('plusMinusAverage', name = f'{joint}_addRotations')
+                cmds.connectAttr(f'{addNode}.output3D', f'{joint}.rotate', force = True)
+                utilityNodes.append(addNode)
+
+                dummyRotationsMultiply = cmds.createNode('multiplyDivide', name = f'{joint}_dummyRotationsMultiply')
+                cmds.connectAttr(f'{dummyRotationsMultiply}.output', f'{addNode}.input3D[0]', force = True)
+                utilityNodes.append(dummyRotationsMultiply)
+
+            if index > 0:
+                originalTx = cmds.getAttr(f'{joint}.tx')
+                addTxNode = cmds.createNode('plusMinusAverage', name = f'{joint}_addTx')
+                cmds.connectAttr(f'{addTxNode}.output1D', f'{joint}.translateX', force = True)
+                utilityNodes.append(addTxNode)
+
+                originalTxMultiply = cmds.createNode('multiplyDivide', name = f'{joint}_original_Tx')
+                cmds.setAttr(f'{originalTxMultiply}.input1X', originalTx, lock = True)
+                cmds.connectAttr(f'{settingsLocator}.creationPoseWeight', f'{originalTxMultiply}.input2X')
+                cmds.connectAttr(f'{originalTxMultiply}.outputX', f'{addTxNode}.input1D[0]', force = True)
+                utilityNodes.append(originalTxMultiply)
+
+            else:
+                if rootTransform:
+                    originalTranslates = cmds.getAttr(f'{joint}.translate')[0]
+                    addTranslateNode = cmds.createNode('plusMinusAverage', name = f'{joint}_addTranslate')
+                    cmds.connectAttr(f'{addTranslateNode}.output3D', f'{joint}.translate', force = True)
+                    utilityNodes.append(addTranslateNode)
+
+                    originalTranslateMultiply = cmds.createNode('multiplyDivide', name = f'{joint}_original_translate')
+                    cmds.setAttr(f'{originalTranslateMultiply}.input1', originalTranslates[0], originalTranslates[1], originalTranslates[2], type = 'double3')
+
+                    for attr in ['X', 'Y', 'Z']:
+                        cmds.connectAttr(f'{settingsLocator}.creationPoseWeight', f'{originalTranslateMultiply}.input2{attr}')
+
+                    cmds.connectAttr(f'{originalTranslateMultiply}.output', f'{addTranslateNode}.input3D[0]', force = True)
+                    utilityNodes.append(originalTranslateMultiply)
+
+                    # Scale
+                    originalScales = cmds.getAttr(f'{joint}.scale')[0]
+                    addScaleNode = cmds.createNode('plusMinusAverage', name = f'{joint}_addScale')
+                    cmds.connectAttr(f'{addScaleNode}.output3D', f'{joint}.scale', force = True)
+                    utilityNodes.append(addScaleNode)
+
+                    originalScaleMultiply = cmds.createNode('multiplyDivide', name = f'{joint}_original_scale')
+                    cmds.setAttr(f'{originalScaleMultiply}.input1', originalScales[0], originalScales[1], originalScales[2], type = 'double3')
+
+                    for attr in ['X', 'Y', 'Z']:
+                        cmds.connectAttr(f'{settingsLocator}.creationPoseWeight', f'{originalScaleMultiply}.input2{attr}')
+
+                    cmds.connectAttr(f'{originalScaleMultiply}.output', f'{addScaleNode}.input3D[0]', force = True)
+                    utilityNodes.append(originalScaleMultiply)
+
 
 
     # BASE CLASS METHODS
