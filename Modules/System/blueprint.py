@@ -79,6 +79,29 @@ class Blueprint:
 
         cmds.namespace(setNamespace = ':')
 
+        jointRadius = 1
+
+        if numJoints == 1:
+            jointRadius = 1.5
+
+        newJoints = []
+
+        for i in range(numJoints):
+            newJoint = ''
+            cmds.select(clear = True)
+
+            if orientWithAxis:
+                print('orientWithAxis')
+            else:
+                if i != 0:
+                    cmds.select(newJoint[i-1])
+                    jointOrientation = [0.0, 0.0, 0.0]
+
+                    if i < numOrientations:
+                        jointOrientation = [jointOrientations[i][0], jointOrientations[i][1], jointOrientations[i][2]]
+
+                    newJoint = cmds.joint(name = f'{self.moduleNamespace}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], orientation = jointOrientation, rotationOrder = 'xyz', radius = jointRadius)
+                    newJoints.append(newJoint)
 
     # BASE CLASS METHODS
     def install(self):
@@ -303,6 +326,12 @@ class Blueprint:
 
         # Parent the visual representation group under the hierarchy group.
         # cmds.parent(constrainedGrp, parentGrp, relative = True)
+        if connectorType == 'orientation':
+            niceName = utils.stripLeadingNamespace(parentJoint)[1]
+            attrName = f'{niceName}_R'
+            print(niceName)
+            cmds.container(container, edit = True, publishAndBind = (f'{connector}.rotateX', attrName))
+            cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
 
         return [container, connector, constrainedGrp]
 
