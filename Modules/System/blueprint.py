@@ -91,17 +91,61 @@ class Blueprint:
             cmds.select(clear = True)
 
             if orientWithAxis:
-                print('orientWithAxis')
+
+                newJoint = cmds.joint(name = f'{self.moduleNamespace}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], rotationOrder = 'xyz', radius = jointRadius)
+
+                if i != 0:
+                    cmds.parent(newJoint, newJoints[i-1], absolute = True)
+                    offsetIndex = i - 1
+
+                    if offsetIndex < numOrientations:
+                        cmds.joint(newJoints[offsetIndex], edit = True, orientJoint = jointOrientations[offsetIndex][0], secondaryAxisOrient = jointOrientations[offsetIndex][1])
+
+                        cmds.makeIdentity(newJoint, rotate = True, apply = True)
+
             else:
                 if i != 0:
-                    cmds.select(newJoint[i-1])
-                    jointOrientation = [0.0, 0.0, 0.0]
+                    cmds.select(newJoints[i-1])
 
-                    if i < numOrientations:
-                        jointOrientation = [jointOrientations[i][0], jointOrientations[i][1], jointOrientations[i][2]]
+                jointOrientation = [0.0, 0.0, 0.0]
 
-                    newJoint = cmds.joint(name = f'{self.moduleNamespace}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], orientation = jointOrientation, rotationOrder = 'xyz', radius = jointRadius)
-                    newJoints.append(newJoint)
+                if i < numOrientations:
+                    jointOrientation = [jointOrientations[i][0], jointOrientations[i][1], jointOrientations[i][2]]
+
+                newJoint = cmds.joint(name = f'{self.moduleNamespace}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], orientation = jointOrientation, rotationOrder = 'xyz', radius = jointRadius)
+
+            newJoints.append(newJoint)
+
+            if i < numRotationOrders:
+                cmds.setAttr(f'{newJoint}.rotateOrder', int(jointRotationOrders[i]))
+
+            if i < numPreferredAngles:
+                cmds.setAttr(f'{newJoint}.preferredAngleX', jointPreferredAngles[i][0])
+                cmds.setAttr(f'{newJoint}.preferredAngleY', jointPreferredAngles[i][1])
+                cmds.setAttr(f'{newJoint}.preferredAngleZ', jointPreferredAngles[i][2])
+
+
+            cmds.setAttr(f'{newJoint}.segmentScaleCompensate', 0)
+
+        blueprintGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:blueprint_joints_grp')
+        cmds.parent(newJoints[0], blueprintGrp, absolute = True)
+
+        creationPoseGrpNodes = cmds.duplicate(blueprintGrp, name = f'{self.moduleNamespace}:creationPose_joints_grp', renameChildren = True)
+        creationPoseGrp = creationPoseGrpNodes[0]
+
+        creationPoseGrpNodes.pop(0)
+
+        for index, node in enumerate(creationPoseGrpNodes):
+            renamedNode = cmds.rename(node, f'{self.moduleNamespace}:creationPose_{self.jointInfo[index][0]}')
+            cmds.setAttr(f'{renamedNode}.visibility', 0)
+
+        cmds.addAttr(blueprintGrp, attributeType = 'bool', defaultValue = 0, longName = 'controlModulesInstalled', keyable = False)
+
+        settingsLocator = cmds.spaceLocator(name = f'{self.moduleNamespace}:SETTINGS')[0]
+        cmds.setAttr(f'{settingsLocator}.visibility', 0)
+
+        cmds.addAttr(settingsLocator, attributeType = 'enum', longName = 'activeModule', enumName = 'None:', keyable = False)
+
 
     # BASE CLASS METHODS
     def install(self):
@@ -328,7 +372,7 @@ class Blueprint:
         # cmds.parent(constrainedGrp, parentGrp, relative = True)
         if connectorType == 'orientation':
             niceName = utils.stripLeadingNamespace(parentJoint)[1]
-            attrName = f'{niceName}_R'
+            attrName = f'{niceName}_orientation'
             print(niceName)
             cmds.container(container, edit = True, publishAndBind = (f'{connector}.rotateX', attrName))
             cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))

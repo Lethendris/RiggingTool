@@ -46,7 +46,6 @@ class SingleJointSegment(blueprintMod.Blueprint):
         orientationInfo = self.orientationControlledJoint_getOrientation(joints[0], cleanParent)
         cmds.delete(orientationInfo[1])
         jointOrientationValues.append(orientationInfo[0])
-
         jointOrientations = (jointOrientationValues, None)
 
         jointRotationOrders.append(cmds.getAttr(f'{joints[0]}.rotateOrder'))
