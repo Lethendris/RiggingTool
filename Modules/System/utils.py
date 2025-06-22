@@ -7,6 +7,15 @@ def getPythonFiles(directory):
     return [f for f in os.listdir(directory) if f.endswith('.py') and os.path.isfile(os.path.join(directory, f))]
 
 
+def importModuleFromPath(moduleName, filePath):
+    """Dynamically import a module from a file path"""
+    if not os.path.exists(filePath):
+        raise FileNotFoundError(f"Module file not found: {filePath}")
+
+    spec = importlib.util.spec_from_file_location(moduleName, filePath)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 def loadAllModulesFromDirectory(directory):
     """
@@ -16,7 +25,7 @@ def loadAllModulesFromDirectory(directory):
     :return: Dictionary where keys are module names and values are dicts with:
              {
                  'module': <module object>,
-                 'name': <MODULE_NAME or file name>,
+                 'name': <CLASS_NAME or file name>,
                  'description': <MODULE_DESCRIPTION or default>,
                  'icon': <MODULE_ICON or empty string>
              }
@@ -33,15 +42,13 @@ def loadAllModulesFromDirectory(directory):
 
 
         try:
-            spec = importlib.util.spec_from_file_location(moduleName, modulePath)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            mod = importModuleFromPath(moduleName, modulePath)
 
             loadedModules[moduleName] = {
-                'name' : getattr(module, 'MODULE_NAME', moduleName),
-                'module': module,
-                'description': getattr(module, 'MODULE_DESCRIPTION', 'No description available'),
-                'icon': getattr(module, 'MODULE_ICON', '')
+                'name' : getattr(mod, 'CLASS_NAME', moduleName),
+                'module': mod,
+                'description': getattr(mod, 'MODULE_DESCRIPTION', 'No description available'),
+                'icon': getattr(mod, 'MODULE_ICON', '')
             }
 
         except Exception as e:
@@ -288,8 +295,6 @@ def createContainer(name, nodesIn, includeHierarchyBelow = True, includeShaders 
     container = cmds.container(name = name, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShaders = includeShaders, includeNetwork = includeNetwork, includeTransform = includeTransform, includeShapes = includeShapes)
     hyperLayout = cmds.listConnections(container, type = 'hyperLayout')
     hyperLayout = cmds.rename(hyperLayout, f'{name}_hyperLayout')
-
-    cmds.container(name = container, edit = True, addNode = [hyperLayout])
 
     return container
 

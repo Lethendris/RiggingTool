@@ -431,6 +431,21 @@ class Blueprint_UI(QtWidgets.QDialog):
             if len(moduleInfo) == 0:
                 QtWidgets.QMessageBox.information(None, "Lock Blueprints?", "There is no blueprint module instance in the current scene.\nAborting Lock.")
 
+            moduleInstances = []
+
+            for module in moduleInfo:
+                mod = importlib.import_module(f'Blueprint.{module[0]}')
+                importlib.reload(mod)
+
+                moduleClass = getattr(mod, mod.CLASS_NAME)
+                moduleInst = moduleClass(userSpecifiedName = module[1])
+                moduleInfo = moduleInst.lockPhase1()
+
+                moduleInstances.append((moduleInst, moduleInfo))
+
+            for module in moduleInstances:
+                module[0].lockPhase2(module[1])
+
 
 
 
@@ -468,7 +483,7 @@ class Blueprint_UI(QtWidgets.QDialog):
             Blueprint_UI: The UI instance.
         """
 
-        """
+
         if not cls.ui_instance:
             cls.ui_instance = Blueprint_UI(modulesDir)
 
@@ -478,19 +493,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         else:
             cls.ui_instance.raise_()
             cls.ui_instance.activateWindow()
-        """
 
-
-        # close existing UI if it exists
-        for widget in QtWidgets.QApplication.allWidgets():
-            if isinstance(widget, Blueprint_UI):
-                widget.close()
-                widget.deleteLater()
-
-        # create and show new UI
-        UI = Blueprint_UI(modulesDir)
-        UI.show()
-        return UI
 
 
 '''

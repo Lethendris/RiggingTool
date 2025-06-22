@@ -8,7 +8,6 @@ importlib.reload(utils)
 
 class Blueprint:
     def __init__(self, moduleName, userSpecifiedName, jointInfo):
-        print('base class constructor')
 
         """
         Initialize the ModuleA instance with a given user-specified name.
@@ -20,12 +19,65 @@ class Blueprint:
         self.moduleName = moduleName # Constant module base name (should be defined externally).
         self.userSpecifiedName = userSpecifiedName
         self.jointInfo = jointInfo
-        self.moduleNameSpace = f'{self.moduleName}__{self.userSpecifiedName}'
-        self.containerName = f'{self.moduleNameSpace}:module_container'
+        self.moduleNamespace = f'{self.moduleName}__{self.userSpecifiedName}'
+        self.containerName = f'{self.moduleNamespace}:module_container'
 
     # Methods intended for overriding by derived class
     def install_custom(self, joints):
         print('install_custom() methods is not implemented by derived class.')
+
+    def lockPhase1(self):
+        # Gather and return all required information from this module's control objects
+        # joint positions = list of joint positions, from root down the hierarchy
+        # joint orientations = list of orientations, or a list of axis information (orientJoint and secondaryAxisOrient for joint command)
+        # these are passed in the following tuple : (orientations, None) or (None, axisInfo)
+        # jointRotationOrders = list of joint rotation orders (integer values gathered with getAttr)
+        # jointPreferredAngles = list of joint preferred angles, optional (can pass None)
+        # hookObject = self.findHookObjectForLock()
+        # rootTransform = a bool, either True or False. True = R, T, and S on root joint. False = R only.
+        # moduleInfo = (jointPositions, jointOrientations, jointRotationOrders, jointPreferredAngles, hookObject, rootTransform
+        # return moduleInfo
+        return None
+
+    def lockPhase2(self, moduleInfo):
+        ([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]], ([(0.0, -0.0, 0.0)], None), [0], None, None, False)
+
+        jointPositions = moduleInfo[0]
+        numJoints = len(jointPositions)
+
+        jointOrientations = moduleInfo[1]
+        orientWithAxis = False
+        pureOrientations = False
+
+        if jointOrientations[0] == None:
+            orientWithAxis = True
+            jointOrientations = jointOrientations[1]
+
+        else:
+            pureOrientations = True
+            jointOrientations = jointOrientations[0]
+
+        numOrientations = len(jointOrientations)
+
+        jointRotationOrders = moduleInfo[2]
+        numRotationOrders = len(jointRotationOrders)
+
+        jointPreferredAngles = moduleInfo[3]
+        numPreferredAngles = 0
+
+        if jointPreferredAngles != None:
+            numPreferredAngles = len(jointPreferredAngles)
+
+        # hook object = moduleInfo[4]
+
+        rootTransform = moduleInfo[5]
+
+        # Delete blueprint controls
+
+        cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
+        cmds.delete(self.containerName, hierarchy = 'below')
+
+        cmds.namespace(setNamespace = ':')
 
 
     # BASE CLASS METHODS
@@ -41,10 +93,10 @@ class Blueprint:
         # cmds.namespace(addNamespace = self.moduleNameSpace)
 
         # Create groups to organize joints and visual representation.
-        self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:joints_grp')
-        self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:hierarchyConnectors_grp')
-        self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNameSpace}:orientationConnectors_grp')
-        self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, name = f'{self.moduleNameSpace}:module_grp')
+        self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:joints_grp')
+        self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:hierarchyConnectors_grp')
+        self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:orientationConnectors_grp')
+        self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, name = f'{self.moduleNamespace}:module_grp')
 
         # Create a container and include the hierarchy.
         utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)
@@ -59,10 +111,10 @@ class Blueprint:
             parentName = ''
 
             if index > 0:
-                parentName = f'{self.moduleNameSpace}:{self.jointInfo[index - 1][0]}'
+                parentName = f'{self.moduleNamespace}:{self.jointInfo[index - 1][0]}'
                 cmds.select(parentName, replace = True)
 
-            jointName_full = cmds.joint(name = f'{self.moduleNameSpace}:{jointName}', position = jointPos)
+            jointName_full = cmds.joint(name = f'{self.moduleNamespace}:{jointName}', position = jointPos)
             joints.append(jointName_full)
 
             # Hide joint from view
@@ -142,6 +194,10 @@ class Blueprint:
 
         return f'{jointName}_translation_control'
 
+    def getOrientationControl(self, jointName):
+
+        return f'{jointName}_orientation_connector'
+
     def setupStretchyJointSegment(self, connectorType, parentJoint, childJoint):
         """
         Set up a stretchy IK segment between a parent and child joint.
@@ -184,7 +240,7 @@ class Blueprint:
             cmds.setAttr(f'{node}.visibility', 0)
 
     def initializeModuleTransform(self, rootPos):
-        self.moduleTransform = utils.createModuleTransformControl(name = f'{self.moduleNameSpace}:module_transform')
+        self.moduleTransform = utils.createModuleTransformControl(name = f'{self.moduleNamespace}:module_transform')
 
         cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = rootPos)
 
@@ -249,3 +305,34 @@ class Blueprint:
         # cmds.parent(constrainedGrp, parentGrp, relative = True)
 
         return [container, connector, constrainedGrp]
+
+    def getJoints(self):
+        jointBaseName = f'{self.moduleNamespace}:'
+        joints = []
+
+        for jointInfo in self.jointInfo:
+            joints.append(f'{jointBaseName}{jointInfo[0]}')
+
+        return joints
+
+    def orientationControlledJoint_getOrientation(self, joint, cleanParent):
+        newCleanParent = cmds.duplicate(joint, parentOnly = True)[0]
+
+        if not cleanParent in cmds.listRelatives(newCleanParent, parent = True):
+            cmds.parent(newCleanParent, cleanParent, absolute = True)
+
+        cmds.makeIdentity(newCleanParent, apply = True, rotate = True, scale = False, translate = False)
+
+        orientationControl = self.getOrientationControl(joint)
+        cmds.setAttr(f'{newCleanParent}.rotateX', cmds.getAttr(f'{orientationControl}.rotateX'))
+
+        cmds.makeIdentity(newCleanParent, apply = True, rotate = True, scale = False, translate = False)
+
+        orientX = cmds.getAttr(f'{newCleanParent}.jointOrientX')
+        orientY = cmds.getAttr(f'{newCleanParent}.jointOrientY')
+        orientZ = cmds.getAttr(f'{newCleanParent}.jointOrientZ')
+
+        orientationValues = (orientX, orientY, orientZ)
+
+        return (orientationValues, newCleanParent)
+
