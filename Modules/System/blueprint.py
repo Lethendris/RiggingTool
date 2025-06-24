@@ -1,7 +1,9 @@
 import os
 
 import maya.cmds as cmds
-
+from maya import OpenMayaUI as omui
+from PySide6 import QtCore, QtWidgets, QtGui
+from shiboken6 import wrapInstance
 import System.utils as utils
 import importlib
 importlib.reload(utils)
@@ -25,6 +27,13 @@ class Blueprint:
     # Methods intended for overriding by derived class
     def install_custom(self, joints):
         print('install_custom() methods is not implemented by derived class.')
+
+    def UI(self, blueprint_UI_instance):
+        self.blueprint_UI_instance = blueprint_UI_instance
+        self.UI_custom()
+
+    def UI_custom(self):
+        pass
 
     def lockPhase1(self):
         # Gather and return all required information from this module's control objects
@@ -489,3 +498,13 @@ class Blueprint:
 
         return (orientationValues, newCleanParent)
 
+    def createRotationOrderUIControl(self, joint):
+        jointName = utils.stripAllNamespaces(joint)[1]
+        attrControlGrp = cmds.attrControlGrp(attribute = f'{joint}.rotateOrder', label = jointName)
+
+        # Get the Qt pointer to the control
+        ptr = omui.MQtUtil.findControl(attrControlGrp)
+
+        widget = wrapInstance(int(ptr), QtWidgets.QWidget)
+        print(widget)
+        return widget

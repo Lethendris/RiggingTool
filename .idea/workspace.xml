@@ -5,9 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4e0ec84c-d7a8-48a4-8ef5-71b6794a636b" name="Changes" comment="test">
-      <change beforePath="$PROJECT_DIR$/.idea/RiggingTool.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/RiggingTool.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Modules/Blueprint/singleJointSegment.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/Blueprint/singleJointSegment.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Modules/System/blueprint.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/System/blueprint.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Modules/System/blueprint_UI.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/System/blueprint_UI.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -54,7 +55,7 @@
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "git-widget-placeholder": "master",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/Hakan/PycharmProjects/RiggingTool/Modules",
+    "last_opened_file_path": "C:/Users/haytac/PycharmProjects/RiggingTool/Modules/Blueprint",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -64,6 +65,7 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\haytac\PycharmProjects\RiggingTool\Modules\Blueprint" />
       <recent name="C:\Users\Hakan\PycharmProjects\RiggingTool\Modules" />
       <recent name="C:\Users\Hakan\PycharmProjects\RiggingTool\Modules\System" />
       <recent name="C:\Users\Hakan\PycharmProjects\RiggingTool\Modules\Blueprint" />
@@ -334,7 +336,15 @@
       <option name="project" value="LOCAL" />
       <updated>1750731771311</updated>
     </task>
-    <option name="localTasksCounter" value="32" />
+    <task id="LOCAL-00032" summary="test">
+      <option name="closed" value="true" />
+      <created>1750779743372</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1750779743372</updated>
+    </task>
+    <option name="localTasksCounter" value="33" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -354,5 +364,15 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="test" />
     <option name="LAST_COMMIT_MESSAGE" value="test" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Modules/System/blueprint.py</url>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

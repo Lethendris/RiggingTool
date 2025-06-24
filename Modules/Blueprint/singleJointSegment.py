@@ -17,6 +17,10 @@ class SingleJointSegment(blueprintMod.Blueprint):
     def install_custom(self, joints):
         pass
         # self.createOrientationControl(joints[0], joints[1])
+    def UI_custom(self):
+        joints = self.getJoints()
+        self.createRotationOrderUIControl(joints[0])
+
 
     def lockPhase1(self):
         # Gather and return all required information from this module's control objects

@@ -48,43 +48,126 @@ class NonInteractivePlainTextEdit(QtWidgets.QPlainTextEdit):
     def keyPressEvent(self, event):
         event.accept()
 
+class MyPushButton(QtWidgets.QPushButton):
+
+    def __init__(self, *a, **kw):
+        super(MyPushButton, self).__init__(*a, **kw)
+
+        pix_normal = QtGui.QPixmap("my_image.jpg")
+        pix_over = pix_normal.copy()
+        painter = QtGui.QPainter(pix_over)
+        painter.fillRect(pix_over.rect(), QtGui.QBrush(QtGui.QColor(0,0,0,128)))
+        painter.end()
+
+        self._icon_normal = QtGui.QIcon(pix_normal)
+        self._icon_over = QtGui.QIcon(pix_over)
+        self.setIcon(self._icon_normal)
+
+
+    def enterEvent(self, event):
+        self.setIcon(self._icon_over)
+        return super(MyPushButton, self).enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.setIcon(self._icon_normal)
+        return super(MyPushButton, self).leaveEvent(event)
+
 class RoundedIconButton(QtWidgets.QPushButton):
-    def __init__(self, *args, radius=4, **kwargs):
+    def __init__(self, imagePath, radius=8, *args, **kwargs):
+        """
+        A QPushButton with rounded corners and hover/press color variants.
+
+        Args:
+            imagePath (str): Path to base icon image.
+            radius (int): Corner radius.
+        """
         super().__init__(*args, **kwargs)
         self.radius = radius
+
         self.setIconSize(QtCore.QSize(64, 64))
-        self.setMinimumSize(64, 64)
-        self.setMaximumSize(64, 64)
+        self.setFixedSize(64, 64)
+        self.setFlat(True)
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        self.setMouseTracking(True)
+
+        # Load icons
+        self._icon_normal = QtGui.QIcon(imagePath)
+        self._icon_hover = self._createOverlayIcon(imagePath, QtGui.QColor(0, 0, 0, 100))
+        self._icon_pressed = self._createOverlayIcon(imagePath, QtGui.QColor(0, 0, 0, 200))
+
+        # Internal state
+        self._hovered = False
+        self._pressed = False
+
+        self.setIcon(self._icon_normal)
+
+    def _createOverlayIcon(self, imagePath, overlayColor):
+        """Creates an icon with a translucent color overlay."""
+        pixmap = QtGui.QPixmap(imagePath)
+        painter = QtGui.QPainter(pixmap)
+        painter.fillRect(pixmap.rect(), overlayColor)
+        painter.end()
+        return QtGui.QIcon(pixmap)
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self._updateIcon()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self._pressed = False
+        self._updateIcon()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        self._pressed = True
+        self._updateIcon()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._pressed = False
+        self._updateIcon()
+        super().mouseReleaseEvent(event)
+
+    def _updateIcon(self):
+        if self._pressed:
+            self.setIcon(self._icon_pressed)
+        elif self._hovered:
+            self.setIcon(self._icon_hover)
+        else:
+            self.setIcon(self._icon_normal)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
 
         # Clip to rounded rect
-        path = QtGui.QPainterPath()
         rect = QtCore.QRectF(self.rect())
+        path = QtGui.QPainterPath()
         path.addRoundedRect(rect, self.radius, self.radius)
         painter.setClipPath(path)
 
-        # Draw button background
+        # Optional: background
+        # painter.fillPath(path, QtGui.QColor("#f5f5f5"))
+
+        # Draw standard button background
         option = QtWidgets.QStyleOptionButton()
         self.initStyleOption(option)
         self.style().drawControl(QtWidgets.QStyle.CE_PushButtonBevel, option, painter, self)
 
-        # Draw icon centered
+        # Draw icon manually to ensure it's centered with clipping
         icon = self.icon()
         if not icon.isNull():
             iconSize = self.iconSize()
-            rect = self.rect()
-            x = (rect.width() - iconSize.width()) // 2
-            y = (rect.height() - iconSize.height()) // 2
+            x = (self.width() - iconSize.width()) // 2
+            y = (self.height() - iconSize.height()) // 2
             icon.paint(painter, x, y, iconSize.width(), iconSize.height())
 
-        # Draw button text if any
+        # Optional text
         if self.text():
-            textRect = self.rect()
             painter.setPen(self.palette().color(QtGui.QPalette.ButtonText))
-            painter.drawText(textRect, QtCore.Qt.AlignCenter, self.text())
+            painter.drawText(self.rect(), QtCore.Qt.AlignCenter, self.text())
 
         painter.end()
 
@@ -110,26 +193,26 @@ class ModuleWidget(QtWidgets.QWidget):
         self.setFixedHeight(90)
 
         # WIDGETS
-        self.imageButton = RoundedIconButton() # image button
+        self.imageButton = RoundedIconButton(self.iconPath) # image button
         self.imageButton.setFixedSize(64, 64)
         self.imageButton.setIconSize(QtCore.QSize(64, 64))
-        self.imageButton.setStyleSheet("""
-            QPushButton {
-                border: 1px solid #555;
-                border-radius: 4px;
-                background-color: #3498db;
-                color: #e0e0e0;
-                padding: 6px;
-                background-image: url("path/to/icon.png");
-                background-repeat: no-repeat;
-                background-position: center;
-                background-origin: content;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-                border-color: #1abc9c;
-            }
-        """)
+        # self.imageButton.setStyleSheet("""
+        #     QPushButton {
+        #         border: 1px solid #555;
+        #         border-radius: 4px;
+        #         background-color: #3498db;
+        #         color: #e0e0e0;
+        #         padding: 6px;
+        #         background-image: url("path/to/icon.png");
+        #         background-repeat: no-repeat;
+        #         background-position: center;
+        #         background-origin: content;
+        #     }
+        #     QPushButton:hover {
+        #         background-color: red;
+        #         border-color: red;
+        #     }
+        # """)
 
         if self.iconPath and os.path.exists(self.iconPath): # set icon for button if available
             icon = QtGui.QIcon(self.iconPath)
@@ -208,7 +291,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         # MAIN WINDOW FLAGS
         self.setWindowTitle('Blueprint Module UI')
         self.setObjectName("Blueprint Module UI")
-        self.setFixedSize(400,600)
+        self.setFixedSize(400,800)
 
         # SETUP UI
         self.setupUI()
@@ -283,16 +366,48 @@ class Blueprint_UI(QtWidgets.QDialog):
                 moduleClass = getattr(mod, mod.CLASS_NAME)
                 self.moduleInstance = moduleClass(userSpecifiedName = userSpecifiedName)
 
-            self.buttons['Mirror Module'].setEnabled(False)
-            self.buttons['Rehook'].setEnabled(False)
-            self.buttons['Constrain Root > Hook'].setEnabled(False)
-            self.buttons['Delete'].setEnabled(False)
+            self.buttons['Snap Root > Hook'].setEnabled(True)
+            self.buttons['Mirror Module'].setEnabled(True)
+            self.buttons['Rehook'].setEnabled(True)
+            self.buttons['Constrain Root > Hook'].setEnabled(True)
+            self.buttons['Delete'].setEnabled(True)
 
+            self.moduleInstanceLineEdit.setEnabled(True)
             self.moduleInstanceLineEdit.setText(userSpecifiedName)
 
+            self.createModuleSpecificControls()
 
+    def createModuleSpecificControls(self):
 
+        # existingControls =
+        #
+        # insertIndex = self.scrollLayout.count() - 1  # index before spacer
+        #
+        # for moduleData in self.loadedModules.values():
+        #     moduleWidget = ModuleWidget(
+        #         moduleData['name'],
+        #         moduleData['description'],
+        #         moduleData['icon'],
+        #         moduleData['module']
+        #     )
+        #     self.scrollLayout.insertWidget(insertIndex, moduleWidget)
 
+        btn = QtWidgets.QPushButton('Create Module')
+        self.moduleControlScrollLayout.insertWidget(0, btn)
+
+        existingControls = self.moduleControlScrollLayout.count()
+
+        # if existingControls != 0:
+        #     while self.moduleControlScrollLayout.count():
+        #         item = self.moduleControlScrollLayout.takeAt(0)
+        #         widget = item.widget()
+        #         if widget:
+        #             widget.setParent(None)
+        #             widget.deleteLater()
+
+        if self.moduleInstance is not None:
+            widget = self.moduleInstance.UI(self)
+            self.moduleControlScrollLayout.insertWidget(0, btn)
 
     def createHLine(self):
         line = QtWidgets.QFrame()
@@ -324,7 +439,7 @@ class Blueprint_UI(QtWidgets.QDialog):
             border: 1px solid #444;
             border-top-left-radius: 4px;
             border-top-right-radius: 4px;
-            padding: 5px 16px;
+            padding: 2px 16px;
             margin-right: 2px;
             font: bold 12px;
         }
@@ -336,7 +451,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         }
 
         QTabBar::tab:hover {
-            background: #a4a4a4;
+            background: #00727e;
         }
         """)
 
@@ -350,19 +465,28 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self.scrollWidget = QtWidgets.QWidget()
 
+        self.moduleControlScrollArea = QtWidgets.QScrollArea()
+        self.moduleControlScrollArea.setWidgetResizable(True)
+        self.moduleControlScrollArea.setFrameShape(QtWidgets.QFrame.Box)
+
+        self.moduleControlScrollWidget = QtWidgets.QWidget()
+
         self.moduleInstanceNameLabel = QtWidgets.QLabel('Module Instance:')
         self.moduleInstanceLineEdit = QtWidgets.QLineEdit()
+        self.moduleInstanceLineEdit.setReadOnly(True)
+        self.moduleInstanceLineEdit.setEnabled(False)
 
         self.symmetryCheckbox = QtWidgets.QCheckBox('Symmetry Move')
 
-        buttonFont = QtGui.QFont()
-        buttonFont.setPointSize(12)
+        buttonFont = QtGui.QFont('Consolas')
         buttonFont.setBold(True)
+        buttonFont.setPointSizeF(12)  # floating point improves text rendering
+        buttonFont.setStyleStrategy(QtGui.QFont.PreferAntialias)
 
         self.lockButton = QtWidgets.QPushButton('LOCK')
         self.lockButton.setStyleSheet("""
         QPushButton {
-            background-color: #242424;
+            background-color: #235592;
             color: #e0e0e0;
             border-radius: 4px;
             border: 1px solid #190000;
@@ -371,10 +495,10 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         }
         QPushButton:hover {
-            background-color: #151515;
+            background-color: #1e4778;
         }
         QPushButton:pressed {
-            background-color: #0a0a0a;
+            background-color: #18385f;
         }
         QPushButton:disabled {
             background-color: #555555;
@@ -386,57 +510,79 @@ class Blueprint_UI(QtWidgets.QDialog):
 
 
         self.lockButton.setFont(buttonFont)
-        self.lockButton.setFixedSize(64, 64)
+        # self.lockButton.setFixedHeight(30)
 
         self.publishButton = QtWidgets.QPushButton('PUBLISH')
         self.publishButton.setStyleSheet("""
-                        QPushButton {
-                            background-color: #68B159;  /* solid blue */
-                            color: #e0e0e0;
-                            border-radius: 4px;
-                            padding: 4px 8px;
+        QPushButton {
+            background-color: #38761d;
+            color: #e0e0e0;
+            border-radius: 4px;
+            border: 1px solid #190000;
+            padding: 4px 8px;
 
 
-                        }
-                        QPushButton:hover {
-                            background-color: #216A12;  /* darker blue on hover */
-                        }
-                        QPushButton:pressed {
-                            background-color: #0C4700;  /* even darker when pressed */
-                        }
-                        """)
+        }
+        QPushButton:hover {
+            background-color: #2a5815;
+        }
+        QPushButton:pressed {
+            background-color: #1f4110;
+        }
+        QPushButton:disabled {
+            background-color: #555555;
+            color: #aaaaaa;
+            border: 1px solid #333333;
+        }
+        """)
+
         self.publishButton.setFont(buttonFont)
-        self.publishButton.setFixedHeight(64)
+        self.publishButton.setFixedHeight(50)
 
         # CREATE LAYOUTS
         self.modulesTabLayout = QtWidgets.QVBoxLayout(self.modulesTab)
         self.modulesTabLayout.setContentsMargins(0, 0, 0, 0)
         self.modulesTabLayout.setSpacing(5)
+        self.modulesTabLayout.setAlignment(QtCore.Qt.AlignTop)
+
 
         self.scrollLayout = QtWidgets.QVBoxLayout(self.scrollWidget)
         self.scrollLayout.setContentsMargins(5, 5, 5, 5)
         self.scrollLayout.setSpacing(5)
         self.scrollLayout.setAlignment(QtCore.Qt.AlignTop)
 
+        self.moduleControlScrollLayout = QtWidgets.QVBoxLayout(self.moduleControlScrollWidget)
+        self.moduleControlScrollLayout.setContentsMargins(5, 5, 5, 5)
+        self.moduleControlScrollLayout.setSpacing(5)
+        self.moduleControlScrollLayout.setAlignment(QtCore.Qt.AlignTop)
+
         self.moduleInstanceNameLayout = QtWidgets.QHBoxLayout()
+        self.moduleInstanceNameLayout.setContentsMargins(5, 0, 0, 0)
 
         self.gridLayout = QtWidgets.QGridLayout()
         self.gridLayout.setSpacing(8)
         self.gridLayout.setContentsMargins(8, 8, 8, 8)
 
-        self.bottomButtonLayout = QtWidgets.QHBoxLayout()
+        self.bottomButtonLayout = QtWidgets.QVBoxLayout()
 
         # ADD WIDGETS
         self.scrollArea.setWidget(self.scrollWidget)
+        self.moduleControlScrollArea.setWidget(self.moduleControlScrollWidget)
 
         self.modulesTabLayout.addWidget(self.scrollArea)
 
         self.moduleInstanceNameLayout.addWidget(self.moduleInstanceNameLabel)
         self.moduleInstanceNameLayout.addWidget(self.moduleInstanceLineEdit)
 
+
         self.gridLayout.addWidget(self.symmetryCheckbox, 2, 2)
 
+
+        self.bottomButtonLayout.setAlignment(QtCore.Qt.AlignBottom)
+        self.bottomButtonLayout.addWidget(self.createHLine())
+
         self.bottomButtonLayout.addWidget(self.lockButton)
+        self.bottomButtonLayout.addWidget(self.createHLine())
         self.bottomButtonLayout.addWidget(self.publishButton)
 
         self.mainLayout.addWidget(self.tabWidget)
@@ -486,6 +632,8 @@ class Blueprint_UI(QtWidgets.QDialog):
             self.gridLayout.addWidget(btn, row, col)
             self.buttons[text] = btn
 
+
+
         self.buttons['Delete'].setStyleSheet("""
         QPushButton {
             background-color: #720000;
@@ -509,11 +657,21 @@ class Blueprint_UI(QtWidgets.QDialog):
         }
         """)
 
+        self.buttons['Snap Root > Hook'].setEnabled(False)
+        self.buttons['Mirror Module'].setEnabled(False)
+        self.buttons['Rehook'].setEnabled(False)
+        self.buttons['Ungroup'].setEnabled(False)
+        self.buttons['Constrain Root > Hook'].setEnabled(False)
+        self.buttons['Delete'].setEnabled(False)
+
         # ADD TO MAIN LAYOUT
+        self.modulesTabLayout.addWidget(self.createHLine())
         self.modulesTabLayout.addLayout(self.moduleInstanceNameLayout)
         self.modulesTabLayout.addWidget(self.createHLine())
         self.modulesTabLayout.addLayout(self.gridLayout)
+
         self.modulesTabLayout.addWidget(self.createHLine())
+        self.modulesTabLayout.addWidget(self.moduleControlScrollArea)
         self.modulesTabLayout.addLayout(self.bottomButtonLayout)
 
         # CONNECT WIDGETS
