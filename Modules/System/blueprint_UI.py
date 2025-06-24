@@ -102,7 +102,7 @@ class ModuleWidget(QtWidgets.QWidget):
 
 
     def setupUI(self):
-        
+
         # MAIN LAYOUT
         self.mainLayout = QtWidgets.QHBoxLayout(self)
         self.mainLayout.setContentsMargins(5, 0, 5, 0)
@@ -130,25 +130,25 @@ class ModuleWidget(QtWidgets.QWidget):
                 border-color: #1abc9c;
             }
         """)
-        
+
         if self.iconPath and os.path.exists(self.iconPath): # set icon for button if available
             icon = QtGui.QIcon(self.iconPath)
             self.imageButton.setIcon(icon)
         else:
-            
+
             self.imageButton.setText('Icon') # default icon
-        
-        
+
+
         self.nameLabel = QtWidgets.QLabel(self.moduleName) # module name label
 
         self.descriptionField = NonInteractivePlainTextEdit(self.description) # Description text field
         self.descriptionField.setFixedHeight(64)
-        
+
         # CREATE LAYOUTS
         self.moduleField = QtWidgets.QVBoxLayout() # module description layout
         self.moduleField.setContentsMargins(5, 0, 0, 0)
-        
-        
+
+
         # ADD WIDGETS
         self.mainLayout.addWidget(self.imageButton, alignment = QtCore.Qt.AlignBottom)
         self.moduleField.addWidget(self.nameLabel, alignment = QtCore.Qt.AlignCenter)
@@ -156,11 +156,11 @@ class ModuleWidget(QtWidgets.QWidget):
 
         # CONNECT WIDGETS
         self.imageButton.clicked.connect(self.moduleImageButtonClicked)
-        
+
         # ADD TO MAIN LAYOUT
         self.mainLayout.addLayout(self.moduleField)
 
-        
+
     def moduleImageButtonClicked(self):
         self.installModule()
 
@@ -183,15 +183,18 @@ class ModuleWidget(QtWidgets.QWidget):
             moduleInstance = moduleClass(userSpecifiedName)
             moduleInstance.install()
 
-            # moduleTransform = f'{self.moduleName}__{userSpecifiedName}:module_transform'
-            # cmds.select(moduleTransform)
-            # cmds.setToolTo('moveSuperContext')
+            moduleTransform = f'{self.moduleName}__{userSpecifiedName}:module_transform'
+            cmds.select(moduleTransform)
+            cmds.setToolTo('moveSuperContext')
 
 class Blueprint_UI(QtWidgets.QDialog):
 
     ui_instance = None
 
     def __init__(self, modulesDir = None, parent = None):
+
+        self.moduleInstance = None
+
         if parent is None:
             try:
                 parent = mayaMainWindow()
@@ -220,37 +223,78 @@ class Blueprint_UI(QtWidgets.QDialog):
 
     def showEvent(self, event):
         super().showEvent(event)
-        # Only create the job if it doesn't exist
-        if not hasattr(self, 'jobNum'):
+
+        # Ensure a script job exists and is active when the UI is shown.
+        # If self.jobNum is None or the job no longer exists in Maya, create a new one.
+        if getattr(self, 'jobNum', None) is None or not cmds.scriptJob(exists=self.jobNum):
             self.createScriptJob()
 
     def createScriptJob(self):
         """Create a scriptJob that listens for selection changes"""
         if getattr(self, 'jobNum', None) is not None and cmds.scriptJob(exists = self.jobNum):
             cmds.scriptJob(kill = self.jobNum, force = True)
-            print(f"[ScriptJob] Killed old job: {self.jobNum}")
 
-        self.jobNum = cmds.scriptJob(event = ['SelectionChanged', self.onSelectionChanged], parent = 'MayaWindow')
-        print(f"[ScriptJob] Created: {self.jobNum}")
-
-    def onSelectionChanged(self):
-        print("[ScriptJob] Selection Changed")
-        # You can do your logic here. Don't kill the job here if it's inside itself.
-        # If you want to re-create the job, use evalDeferred to avoid self-kill.
+        self.jobNum = cmds.scriptJob(event = ['SelectionChanged', self.modifySelected], parent = self.objectName())
 
     def closeEvent(self, event):
-        print("[UI] Closing dialog")
 
         if getattr(self, 'jobNum', None) is not None and cmds.scriptJob(exists = self.jobNum):
             cmds.scriptJob(kill = self.jobNum, force = True)
-            print(f"[ScriptJob] Killed: {self.jobNum}")
             self.jobNum = None
 
         super().closeEvent(event)
 
-        # if self.jobNum and cmds.scriptJob(exists = self.jobNum):
-        #     cmds.scriptJob(kill = self.jobNum, force = True)
-        #     print(f"Killed scriptJob: {self.jobNum}")
+    def modifySelected(self):
+
+        selectedNodes = cmds.ls(selection = True)
+
+        if len(selectedNodes) <= 1:
+            self.moduleInstance = None
+            selectedModuleNamespace = None
+            currentModuleFile = None
+
+            if len(selectedNodes) == 1:
+                lastSelected = selectedNodes[0]
+
+                namespaceAndNode = utils.stripLeadingNamespace(lastSelected)
+                if namespaceAndNode is not None:
+                    namespace = namespaceAndNode[0]
+
+                    validModules = [module for module in utils.loadAllModulesFromDirectory(self.modulesDir).keys()]
+                    validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(self.modulesDir).values()]
+
+                    for index, moduleName in enumerate(validModuleNames):
+                        moduleNameIncSuffix = f'{moduleName}__'
+                        if namespace.find(moduleNameIncSuffix) == 0:
+                            currentModuleFile = validModules[index]
+                            selectedModuleNamespace = namespace
+                            break
+
+            controlEnable = False
+            userSpecifiedName = ''
+
+            if selectedModuleNamespace is not None:
+                controlEnable = True
+                userSpecifiedName = selectedModuleNamespace.partition('__')[2]
+
+                mod = importlib.import_module(f'Blueprint.{currentModuleFile}')
+                importlib.reload(mod)
+
+                moduleClass = getattr(mod, mod.CLASS_NAME)
+                self.moduleInstance = moduleClass(userSpecifiedName = userSpecifiedName)
+
+            self.buttons['Mirror Module'].setEnabled(False)
+            self.buttons['Rehook'].setEnabled(False)
+            self.buttons['Constrain Root > Hook'].setEnabled(False)
+            self.buttons['Delete'].setEnabled(False)
+
+            self.moduleInstanceLineEdit.setText(userSpecifiedName)
+
+
+
+
+
+
 
 
     def createHLine(self):
@@ -417,6 +461,11 @@ class Blueprint_UI(QtWidgets.QDialog):
         QPushButton:pressed {
             background-color: #1c5980;  /* even darker when pressed */
         }
+        QPushButton:disabled {
+            background-color: #555555;
+            color: #aaaaaa;
+            border: 1px solid #333333;
+        }
         """
 
         # Create buttons dynamically and add to layout
@@ -481,12 +530,6 @@ class Blueprint_UI(QtWidgets.QDialog):
 
             for module in moduleInstances:
                 module[0].lockPhase2(module[1])
-
-
-
-
-            # for module, data in utils.loadAllModulesFromDirectory(self.modulesDir).items():
-            #     print (module, data['name'])
 
 
 

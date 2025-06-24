@@ -454,7 +454,6 @@ class Blueprint:
         if connectorType == 'orientation':
             niceName = utils.stripLeadingNamespace(parentJoint)[1]
             attrName = f'{niceName}_orientation'
-            print(niceName)
             cmds.container(container, edit = True, publishAndBind = (f'{connector}.rotateX', attrName))
             cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
 
