@@ -204,6 +204,7 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         # MAIN WINDOW FLAGS
         self.setWindowTitle('Blueprint Module UI')
+        self.setObjectName("Blueprint Module UI")
         self.setFixedSize(400,600)
 
         # SETUP UI
@@ -216,6 +217,41 @@ class Blueprint_UI(QtWidgets.QDialog):
             self.loadedModules = utils.loadAllModulesFromDirectory(self.modulesDir)  # Load modules if directory is provided
 
             self.addModuleToUI()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Only create the job if it doesn't exist
+        if not hasattr(self, 'jobNum'):
+            self.createScriptJob()
+
+    def createScriptJob(self):
+        """Create a scriptJob that listens for selection changes"""
+        if getattr(self, 'jobNum', None) is not None and cmds.scriptJob(exists = self.jobNum):
+            cmds.scriptJob(kill = self.jobNum, force = True)
+            print(f"[ScriptJob] Killed old job: {self.jobNum}")
+
+        self.jobNum = cmds.scriptJob(event = ['SelectionChanged', self.onSelectionChanged], parent = 'MayaWindow')
+        print(f"[ScriptJob] Created: {self.jobNum}")
+
+    def onSelectionChanged(self):
+        print("[ScriptJob] Selection Changed")
+        # You can do your logic here. Don't kill the job here if it's inside itself.
+        # If you want to re-create the job, use evalDeferred to avoid self-kill.
+
+    def closeEvent(self, event):
+        print("[UI] Closing dialog")
+
+        if getattr(self, 'jobNum', None) is not None and cmds.scriptJob(exists = self.jobNum):
+            cmds.scriptJob(kill = self.jobNum, force = True)
+            print(f"[ScriptJob] Killed: {self.jobNum}")
+            self.jobNum = None
+
+        super().closeEvent(event)
+
+        # if self.jobNum and cmds.scriptJob(exists = self.jobNum):
+        #     cmds.scriptJob(kill = self.jobNum, force = True)
+        #     print(f"Killed scriptJob: {self.jobNum}")
+
 
     def createHLine(self):
         line = QtWidgets.QFrame()

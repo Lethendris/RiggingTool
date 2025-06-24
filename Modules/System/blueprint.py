@@ -202,6 +202,30 @@ class Blueprint:
                     cmds.connectAttr(f'{originalScaleMultiply}.output', f'{addScaleNode}.input3D[0]', force = True)
                     utilityNodes.append(originalScaleMultiply)
 
+        blueprintNodes = utilityNodes
+        blueprintNodes.append(blueprintGrp)
+        blueprintNodes.append(creationPoseGrp)
+
+        blueprintContainer = utils.createContainer(name = f'{self.moduleNamespace}:blueprint_container', nodesIn = blueprintNodes, includeHierarchyBelow = True, includeShaders = True,
+                                                   includeTransform = True, includeShapes = True)
+
+        moduleGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:module_grp')
+        cmds.parent(settingsLocator, moduleGrp, absolute = True)
+
+        # TEMP
+        for group in [blueprintGrp, creationPoseGrp]:
+            cmds.parent(group, moduleGrp, absolute = True)
+        # END TEMP
+
+        moduleContainer = utils.createContainer(name = f'{self.moduleNamespace}:module_container', nodesIn = [moduleGrp, settingsLocator, blueprintContainer], includeHierarchyBelow = True,
+                                                includeShaders = True, includeTransform = True, includeShapes = True)
+
+        cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.activeModule', 'activeModule'))
+        cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.creationPoseWeight', 'creationPoseWeight'))
+
+        # TEMP
+        cmds.lockNode(moduleContainer, lock = True, lockUnpublished = True)
+        # END TEMP
 
 
     # BASE CLASS METHODS

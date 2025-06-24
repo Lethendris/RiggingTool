@@ -285,14 +285,14 @@ def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includ
     # nodes.extend(conversionNodes)
     cmds.container(container, edit = True, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShapes = includeShapes, includeShaders = True, force = force)
 
-def createContainer(name, nodesIn, includeHierarchyBelow = True, includeShaders = True, includeNetwork = True, includeTransform = True, includeShapes = True):
+def createContainer(name, nodesIn, includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True, force = True):
     if isinstance(nodesIn, list):
         nodes = list(nodesIn)
 
     else:
         nodes = [nodesIn]
 
-    container = cmds.container(name = name, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShaders = includeShaders, includeNetwork = includeNetwork, includeTransform = includeTransform, includeShapes = includeShapes)
+    container = cmds.container(name = name, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShaders = includeShaders, includeTransform = includeTransform, includeShapes = includeShapes, force = force)
     hyperLayout = cmds.listConnections(container, type = 'hyperLayout')
     hyperLayout = cmds.rename(hyperLayout, f'{name}_hyperLayout')
 
@@ -356,7 +356,8 @@ def createTranslationControl(name):
     material, materialInfo = assignMaterial(control, color = (1, 0, 0))
 
     # Create container and add nodes
-    container = createContainer(name = f'{name}_translation_container', nodesIn = [control, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeNetwork = True, includeTransform = True, includeShapes = True)
+    container = createContainer(name = f'{name}_translation_container', nodesIn = [control, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
+                                includeShapes = True)
 
     return [container, control]
 
@@ -410,7 +411,8 @@ def createOrientationConnector(name):
     connector = cmds.rename(y_cube, f'{name}_orientation_connector', ignoreShape = True)
 
     # Create container and add nodes
-    container = createContainer(name = f'{name}_orientation_container', nodesIn = [connector, y_material, y_materialInfo, z_material, z_materialInfo], includeHierarchyBelow = True, includeShaders = True, includeNetwork = True, includeTransform = True, includeShapes = True)
+    container = createContainer(name = f'{name}_orientation_container', nodesIn = [connector, y_material, y_materialInfo, z_material, z_materialInfo], includeHierarchyBelow = True,
+                                includeShaders = True, includeTransform = True, includeShapes = True)
 
     return [container, connector]
 
@@ -436,7 +438,8 @@ def createHierarchyConnector(name):
     connector = cmds.rename(cylinder, f'{name}_hierarchy_connector', ignoreShape = True)
 
     # Create container and add nodes
-    container = createContainer(name = f'{name}_hierarchy_container', nodesIn = [connector, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeNetwork = True, includeTransform = True, includeShapes = True)
+    container = createContainer(name = f'{name}_hierarchy_container', nodesIn = [connector, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
+                                includeShapes = True)
 
     return [container, connector]
 
