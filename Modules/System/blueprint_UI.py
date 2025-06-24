@@ -36,9 +36,9 @@ class NonInteractivePlainTextEdit(QtWidgets.QPlainTextEdit):
         self.setStyleSheet("""
             QPlainTextEdit {
                 background-color: #242424;
-                color: #ffffff;
+                color: #e0e0e0;
                 border: 2px solid #555;
-                border-radius: 8px;
+                border-radius: 4px;
                 padding: 6px;
                 font-family: Consolas, monospace;
                 font-size: 12px;
@@ -49,7 +49,7 @@ class NonInteractivePlainTextEdit(QtWidgets.QPlainTextEdit):
         event.accept()
 
 class RoundedIconButton(QtWidgets.QPushButton):
-    def __init__(self, *args, radius=8, **kwargs):
+    def __init__(self, *args, radius=4, **kwargs):
         super().__init__(*args, **kwargs)
         self.radius = radius
         self.setIconSize(QtCore.QSize(64, 64))
@@ -115,10 +115,10 @@ class ModuleWidget(QtWidgets.QWidget):
         self.imageButton.setIconSize(QtCore.QSize(64, 64))
         self.imageButton.setStyleSheet("""
             QPushButton {
-                border: 2px solid #555;
-                border-radius: 8px;
+                border: 1px solid #555;
+                border-radius: 4px;
                 background-color: #3498db;
-                color: white;
+                color: #e0e0e0;
                 padding: 6px;
                 background-image: url("path/to/icon.png");
                 background-repeat: no-repeat;
@@ -294,9 +294,6 @@ class Blueprint_UI(QtWidgets.QDialog):
 
 
 
-
-
-
     def createHLine(self):
         line = QtWidgets.QFrame()
         line.setFrameShape(QtWidgets.QFrame.HLine)
@@ -317,25 +314,25 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.tabWidget.setStyleSheet("""
         QTabWidget::pane {
             border: 2px solid #555;
-            border-radius: 8px;
+            border-radius: 4px;
             padding: 5px;
         }
 
         QTabBar::tab {
             background: #2c3e50;
-            color: white;
+            color: #e0e0e0;
             border: 1px solid #444;
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
             padding: 5px 16px;
             margin-right: 2px;
             font: bold 12px;
         }
 
         QTabBar::tab:selected {
-            background: #3daee9;
-            border-top-left-radius: 8px;    /* more rounded corner */
-            border-top-right-radius: 8px;
+            background: #008593;
+            border-top-left-radius: 4px;    /* more rounded corner */
+            border-top-right-radius: 4px;
         }
 
         QTabBar::tab:hover {
@@ -364,20 +361,30 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self.lockButton = QtWidgets.QPushButton('LOCK')
         self.lockButton.setStyleSheet("""
-                                QPushButton {
-                                    background-color: #216091;  /* solid blue */
-                                    color: white;
-                                    border-radius: 5px;
-                                    padding: 4px 8px;
+        QPushButton {
+            background-color: #242424;
+            color: #e0e0e0;
+            border-radius: 4px;
+            border: 1px solid #190000;
+            padding: 4px 8px;
 
-                                }
-                                QPushButton:hover {
-                                    background-color: #063A62;  /* darker blue on hover */
-                                }
-                                QPushButton:pressed {
-                                    background-color: #032947;  /* even darker when pressed */
-                                }
-                                """)
+
+        }
+        QPushButton:hover {
+            background-color: #151515;
+        }
+        QPushButton:pressed {
+            background-color: #0a0a0a;
+        }
+        QPushButton:disabled {
+            background-color: #555555;
+            color: #aaaaaa;
+            border: 1px solid #333333;
+        }
+        """)
+
+
+
         self.lockButton.setFont(buttonFont)
         self.lockButton.setFixedSize(64, 64)
 
@@ -385,8 +392,8 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.publishButton.setStyleSheet("""
                         QPushButton {
                             background-color: #68B159;  /* solid blue */
-                            color: white;
-                            border-radius: 5px;
+                            color: #e0e0e0;
+                            border-radius: 4px;
                             padding: 4px 8px;
 
 
@@ -445,21 +452,21 @@ class Blueprint_UI(QtWidgets.QDialog):
             ('Delete', 2, 1),
         ]
 
-        roundedCornersStyle = """
+        styleSheet = """
         QPushButton {
-            background-color: #3498db;  /* solid blue */
-            color: white;
-            border-radius: 5px;
-            border: 1px solid #2980b9;
+            background-color: #008593;
+            color: #e0e0e0;
+            border-radius: 4px;
+            border: 1px solid #003338;
             padding: 4px 8px;
 
 
         }
         QPushButton:hover {
-            background-color: #2980b9;  /* darker blue on hover */
+            background-color: #00727e;
         }
         QPushButton:pressed {
-            background-color: #1c5980;  /* even darker when pressed */
+            background-color: #00434a;
         }
         QPushButton:disabled {
             background-color: #555555;
@@ -470,13 +477,37 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         # Create buttons dynamically and add to layout
         self.buttons = {}
+
         for text, row, col in buttonDefs:
             btn = QtWidgets.QPushButton(text)
             btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             btn.setFixedHeight(32)
-            btn.setStyleSheet(roundedCornersStyle)  # apply rounded corners style
+            btn.setStyleSheet(styleSheet)  # apply rounded corners style
             self.gridLayout.addWidget(btn, row, col)
             self.buttons[text] = btn
+
+        self.buttons['Delete'].setStyleSheet("""
+        QPushButton {
+            background-color: #720000;
+            color: #e0e0e0;
+            border-radius: 4px;
+            border: 1px solid #190000;
+            padding: 4px 8px;
+
+
+        }
+        QPushButton:hover {
+            background-color: #510000;
+        }
+        QPushButton:pressed {
+            background-color: #310000;
+        }
+        QPushButton:disabled {
+            background-color: #555555;
+            color: #aaaaaa;
+            border: 1px solid #333333;
+        }
+        """)
 
         # ADD TO MAIN LAYOUT
         self.modulesTabLayout.addLayout(self.moduleInstanceNameLayout)
