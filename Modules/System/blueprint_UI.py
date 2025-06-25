@@ -276,6 +276,7 @@ class Blueprint_UI(QtWidgets.QDialog):
     ui_instance = None
 
     def __init__(self, modulesDir = None, parent = None):
+        self.jobNum = None
 
         self.moduleInstance = None
 
@@ -305,30 +306,23 @@ class Blueprint_UI(QtWidgets.QDialog):
 
             self.addModuleToUI()
 
+
     def showEvent(self, event):
         super().showEvent(event)
-
-        # Ensure a script job exists and is active when the UI is shown.
-        # If self.jobNum is None or the job no longer exists in Maya, create a new one.
-        if getattr(self, 'jobNum', None) is None or not cmds.scriptJob(exists=self.jobNum):
-            self.createScriptJob()
-
-    def createScriptJob(self):
-        """Create a scriptJob that listens for selection changes"""
-        if getattr(self, 'jobNum', None) is not None and cmds.scriptJob(exists = self.jobNum):
-            cmds.scriptJob(kill = self.jobNum, force = True)
-
-        self.jobNum = cmds.scriptJob(event = ['SelectionChanged', self.modifySelected], parent = self.objectName())
+        self.createScriptJob()
 
     def closeEvent(self, event):
-
-        if getattr(self, 'jobNum', None) is not None and cmds.scriptJob(exists = self.jobNum):
-            cmds.scriptJob(kill = self.jobNum, force = True)
-            self.jobNum = None
-
         super().closeEvent(event)
+        self.deleteScriptJob()
 
-    def modifySelected(self):
+    def createScriptJob(self):
+        self.jobNum = cmds.scriptJob(event=['SelectionChanged', self.modifySelected], runOnce = True)
+
+    def deleteScriptJob(self):
+        cmds.scriptJob(kill=self.jobNum, force=True)
+
+
+    def modifySelected(self, *args):
 
         selectedNodes = cmds.ls(selection = True)
 
@@ -339,10 +333,8 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Rehook'].setEnabled(False)
         self.buttons['Constrain Root > Hook'].setEnabled(False)
         self.buttons['Delete'].setEnabled(False)
-        # Create connections
-
-        self.moduleInstanceLineEdit.setEnabled(False)
-        self.moduleInstanceLineEdit.setText('')
+        # self.moduleInstanceLineEdit.setEnabled(False)
+        # self.moduleInstanceLineEdit.setText('')
 
         if len(selectedNodes) <= 1:
             self.moduleInstance = None
@@ -353,6 +345,7 @@ class Blueprint_UI(QtWidgets.QDialog):
                 lastSelected = selectedNodes[0]
 
                 namespaceAndNode = utils.stripLeadingNamespace(lastSelected)
+
                 if namespaceAndNode is not None:
                     namespace = namespaceAndNode[0]
 
@@ -386,19 +379,15 @@ class Blueprint_UI(QtWidgets.QDialog):
                 self.buttons['Ungroup'].setEnabled(True)
                 self.buttons['Constrain Root > Hook'].setEnabled(True)
                 self.buttons['Delete'].setEnabled(True)
-                # Create connections
-
-
                 self.moduleInstanceLineEdit.setEnabled(True)
                 self.moduleInstanceLineEdit.setText(userSpecifiedName)
 
-            self.createModuleSpecificControls()
+                self.createModuleSpecificControls()
+
+            self.createScriptJob()
 
 
     def createModuleSpecificControls(self):
-
-        btn = QtWidgets.QPushButton('Create Module')
-        self.moduleControlScrollLayout.insertWidget(0, btn)
 
         self._clearLayout(self.moduleControlScrollLayout)
 
@@ -488,8 +477,8 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self.moduleInstanceNameLabel = QtWidgets.QLabel('Module Instance:')
         self.moduleInstanceLineEdit = QtWidgets.QLineEdit()
-        self.moduleInstanceLineEdit.setReadOnly(True)
-        self.moduleInstanceLineEdit.setEnabled(False)
+        # self.moduleInstanceLineEdit.setReadOnly(True)
+        # self.moduleInstanceLineEdit.setEnabled(False)
 
         self.symmetryCheckbox = QtWidgets.QCheckBox('Symmetry Move')
 
@@ -693,6 +682,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         # CONNECT WIDGETS
         self.lockButton.clicked.connect(self.lockClicked)
         self.buttons['Delete'].clicked.connect(self.deleteModule)
+        self.moduleInstanceLineEdit.editingFinished.connect(self.renameModule)
 
     def lockClicked(self):
         reply = QtWidgets.QMessageBox.question(self, "Lock Blueprints?", "Locking the character will convert current blueprint modules to joints.This action cannot be undone. Modifications to the blueprint system cannot be made after this point.\nDo you want to continue?", QtWidgets.QMessageBox.StandardButton.Ok | QtWidgets.QMessageBox.StandardButton.Cancel)
@@ -778,6 +768,24 @@ class Blueprint_UI(QtWidgets.QDialog):
         else:
             cls.ui_instance.raise_()
             cls.ui_instance.activateWindow()
+
+    def renameModule(self):
+        print("Rename Module")
+        """Rename the module"""
+        newName = self.moduleInstanceLineEdit.text()
+
+        print(newName)
+
+        self.moduleInstance.renameModuleInstance(newName)
+
+        previousSelection = cmds.ls(selection = True)
+
+        if len(previousSelection) > 0:
+            cmds.select(previousSelection, replace = True)
+
+        else:
+            cmds.select(clear = True)
+
 
 
 

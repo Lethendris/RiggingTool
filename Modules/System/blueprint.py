@@ -50,7 +50,6 @@ class Blueprint:
         return None
 
     def lockPhase2(self, moduleInfo):
-        ([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]], ([(0.0, -0.0, 0.0)], None), [0], None, None, False)
 
         jointPositions = moduleInfo[0]
         numJoints = len(jointPositions)
@@ -75,7 +74,7 @@ class Blueprint:
         jointPreferredAngles = moduleInfo[3]
         numPreferredAngles = 0
 
-        if jointPreferredAngles != None:
+        if jointPreferredAngles is not None:
             numPreferredAngles = len(jointPreferredAngles)
 
         # hook object = moduleInfo[4]
@@ -98,11 +97,12 @@ class Blueprint:
 
         for i in range(numJoints):
             newJoint = ''
+
             cmds.select(clear = True)
 
             if orientWithAxis:
 
-                newJoint = cmds.joint(name = f'{self.moduleNamespace}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], rotationOrder = 'xyz', radius = jointRadius)
+                newJoint = cmds.joint(name = f'{self.moduleNamespaces}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], rotationOrder = 'xyz', radius = jointRadius)
 
                 if i != 0:
                     cmds.parent(newJoint, newJoints[i-1], absolute = True)
@@ -499,9 +499,6 @@ class Blueprint:
 
         return (orientationValues, newCleanParent)
 
-    def setRotateOrderComboBox(self, index, joint):
-        cmds.setAttr(f'{self.moduleNamespace}:{joint}.rotateOrder', index)
-
     def createRotationOrderUIControl(self, joint):
 
         jointName = utils.stripAllNamespaces(joint)[1]
@@ -519,32 +516,40 @@ class Blueprint:
         layout.addWidget(label)
         layout.addWidget(combobox)
 
+        print(joint)
+        print(jointName)
+
+        cmds.window()
+        cmds.columnLayout()
+        cmds.attrControlGrp(attribute=f'{joint}.rotateOrder', label=jointName)
+        cmds.showWindow()
+
         # 1. Initialize the combobox to the joint's current rotateOrder
 
 
-        currentRotateOrder = cmds.getAttr(f'{joint}.rotateOrder') # Get the current rotateOrder (integer value) from the joint
-        combobox.setCurrentIndex(currentRotateOrder) # Set the combobox's current index to match the joint's rotateOrder
-
-        # 2. Connect the combobox's signal to a function that updates the joint's rotateOrder
-        def update_joint_rotate_order(index):
-            """
-            This function will be called when the combobox's selected index changes.
-            'index' is the new selected index (0-5) from the combobox.
-            """
-            # Set the joint's rotateOrder attribute in Maya
-            cmds.setAttr(f'{joint}.rotateOrder', index)
-            print(f"Updated {joint}'s rotateOrder to: {combobox.currentText()} (index: {index})")
-
-        # Connect the currentIndexChanged signal to our update function
-        # This ensures that whenever the user selects a new item, the update_joint_rotate_order function is called.
-        combobox.currentIndexChanged.connect(update_joint_rotate_order)
+        # currentRotateOrder = cmds.getAttr(f'{joint}.rotateOrder') # Get the current rotateOrder (integer value) from the joint
+        # combobox.setCurrentIndex(currentRotateOrder) # Set the combobox's current index to match the joint's rotateOrder
+        #
+        # # 2. Connect the combobox's signal to a function that updates the joint's rotateOrder
+        # def update_joint_rotate_order(index):
+        #     """
+        #     This function will be called when the combobox's selected index changes.
+        #     'index' is the new selected index (0-5) from the combobox.
+        #     """
+        #     # Set the joint's rotateOrder attribute in Maya
+        #     cmds.setAttr(f'{joint}.rotateOrder', index)
+        #     print(f"Updated {joint}'s rotateOrder to: {combobox.currentText()} (index: {index})")
+        #
+        # # Connect the currentIndexChanged signal to our update function
+        # # This ensures that whenever the user selects a new item, the update_joint_rotate_order function is called.
+        # combobox.currentIndexChanged.connect(update_joint_rotate_order)
 
         # Return the layout. The combobox and its connection will persist because
         # the layout is added to a parent widget/layout in UI_custom.
         return layout
 
     def delete(self):
-        print('delete')
+
         cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
         cmds.delete(self.containerName)
 
@@ -552,3 +557,28 @@ class Blueprint:
         cmds.namespace(removeNamespace = self.moduleNamespace)
 
 
+    def renameModuleInstance(self, newName):
+
+
+        if newName == self.userSpecifiedName:
+            return
+
+        if utils.doesBlueprintUserSpecifiedNameExist(newName):
+            QtWidgets.QMessageBox.information(None, "Name Conflict",f"Name {newName} already exists.\nAborting Rename.")
+            return False
+
+        else:
+            newNamespace = f'{self.moduleName}__{newName}'
+            cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
+            cmds.namespace(setNamespace = ':')
+            cmds.namespace(addNamespace = newNamespace)
+            cmds.namespace(setNamespace = ':')
+
+            cmds.namespace(moveNamespace = [self.moduleNamespace, newNamespace])
+            cmds.namespace(removeNamespace = self.moduleNamespace)
+
+            self.moduleNamespace = newNamespace
+            self.containerName = f'{newNamespace}:module_container'
+            cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
+
+            return True

@@ -42,7 +42,6 @@ class SingleJointSegment(blueprintMod.Blueprint):
 
         joints = self.getJoints()
 
-
         for joint in joints:
             jointPositions.append(cmds.xform(joint, query = True, worldSpace = True, translation = True))
 
