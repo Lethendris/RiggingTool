@@ -372,19 +372,19 @@ class Blueprint_UI(QtWidgets.QDialog):
                 moduleClass = getattr(mod, mod.CLASS_NAME)
                 self.moduleInstance = moduleClass(userSpecifiedName = userSpecifiedName)
 
-                self.buttons['Snap Root > Hook'].setEnabled(True)
-                self.buttons['Mirror Module'].setEnabled(True)
-                self.buttons['Rehook'].setEnabled(True)
-                self.buttons['Group Selected'].setEnabled(True)
-                self.buttons['Ungroup'].setEnabled(True)
-                self.buttons['Constrain Root > Hook'].setEnabled(True)
-                self.buttons['Delete'].setEnabled(True)
-                self.moduleInstanceLineEdit.setEnabled(True)
-                self.moduleInstanceLineEdit.setText(userSpecifiedName)
+            self.buttons['Snap Root > Hook'].setEnabled(True)
+            self.buttons['Mirror Module'].setEnabled(True)
+            self.buttons['Rehook'].setEnabled(True)
+            self.buttons['Group Selected'].setEnabled(True)
+            self.buttons['Ungroup'].setEnabled(True)
+            self.buttons['Constrain Root > Hook'].setEnabled(True)
+            self.buttons['Delete'].setEnabled(True)
+            self.moduleInstanceLineEdit.setEnabled(True)
+            self.moduleInstanceLineEdit.setText(userSpecifiedName)
 
-                self.createModuleSpecificControls()
+            self.createModuleSpecificControls()
 
-            self.createScriptJob()
+        self.createScriptJob()
 
 
     def createModuleSpecificControls(self):
