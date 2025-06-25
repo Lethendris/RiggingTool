@@ -240,6 +240,7 @@ class ModuleWidget(QtWidgets.QWidget):
         # CONNECT WIDGETS
         self.imageButton.clicked.connect(self.moduleImageButtonClicked)
 
+
         # ADD TO MAIN LAYOUT
         self.mainLayout.addLayout(self.moduleField)
 
@@ -331,6 +332,17 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         selectedNodes = cmds.ls(selection = True)
 
+        self.buttons['Snap Root > Hook'].setEnabled(False)
+        self.buttons['Group Selected'].setEnabled(False)
+        self.buttons['Ungroup'].setEnabled(False)
+        self.buttons['Mirror Module'].setEnabled(False)
+        self.buttons['Rehook'].setEnabled(False)
+        self.buttons['Constrain Root > Hook'].setEnabled(False)
+        self.buttons['Delete'].setEnabled(False)
+        # Create connections
+
+        self.moduleInstanceLineEdit.setEnabled(False)
+
         if len(selectedNodes) <= 1:
             self.moduleInstance = None
             selectedModuleNamespace = None
@@ -366,19 +378,20 @@ class Blueprint_UI(QtWidgets.QDialog):
                 moduleClass = getattr(mod, mod.CLASS_NAME)
                 self.moduleInstance = moduleClass(userSpecifiedName = userSpecifiedName)
 
-            self.buttons['Snap Root > Hook'].setEnabled(True)
-            self.buttons['Mirror Module'].setEnabled(True)
-            self.buttons['Rehook'].setEnabled(True)
-            self.buttons['Constrain Root > Hook'].setEnabled(True)
-            self.buttons['Delete'].setEnabled(True)
-            # Create connections
-            self.buttons['Delete'].clicked.connect(self.deleteModule)
+                self.buttons['Snap Root > Hook'].setEnabled(True)
+                self.buttons['Mirror Module'].setEnabled(True)
+                self.buttons['Rehook'].setEnabled(True)
+                self.buttons['Group Selected'].setEnabled(True)
+                self.buttons['Ungroup'].setEnabled(True)
+                self.buttons['Constrain Root > Hook'].setEnabled(True)
+                self.buttons['Delete'].setEnabled(True)
+                # Create connections
 
-            self.moduleInstanceLineEdit.setEnabled(True)
-            self.moduleInstanceLineEdit.setText(userSpecifiedName)
+
+                self.moduleInstanceLineEdit.setEnabled(True)
+                self.moduleInstanceLineEdit.setText(userSpecifiedName)
 
             self.createModuleSpecificControls()
-
 
 
     def createModuleSpecificControls(self):
@@ -657,6 +670,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Mirror Module'].setEnabled(False)
         self.buttons['Rehook'].setEnabled(False)
         self.buttons['Ungroup'].setEnabled(False)
+        self.buttons['Group Selected'].setEnabled(False)
         self.buttons['Constrain Root > Hook'].setEnabled(False)
         self.buttons['Delete'].setEnabled(False)
 
@@ -672,6 +686,7 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         # CONNECT WIDGETS
         self.lockButton.clicked.connect(self.lockClicked)
+        self.buttons['Delete'].clicked.connect(self.deleteModule)
 
     def lockClicked(self):
         reply = QtWidgets.QMessageBox.question(self, "Lock Blueprints?", "Locking the character will convert current blueprint modules to joints.This action cannot be undone. Modifications to the blueprint system cannot be made after this point.\nDo you want to continue?", QtWidgets.QMessageBox.StandardButton.Ok | QtWidgets.QMessageBox.StandardButton.Cancel)
