@@ -342,6 +342,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         # Create connections
 
         self.moduleInstanceLineEdit.setEnabled(False)
+        self.moduleInstanceLineEdit.setText('')
 
         if len(selectedNodes) <= 1:
             self.moduleInstance = None
