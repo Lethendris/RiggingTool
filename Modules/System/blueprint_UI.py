@@ -400,15 +400,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         btn = QtWidgets.QPushButton('Create Module')
         self.moduleControlScrollLayout.insertWidget(0, btn)
 
-        existingControls = self.moduleControlScrollLayout.count()
-
-        if existingControls != 0:
-            while self.moduleControlScrollLayout.count():
-                item = self.moduleControlScrollLayout.takeAt(0)
-                widget = item.widget()
-                if widget:
-                    widget.setParent(None)
-                    widget.deleteLater()
+        self._clearLayout(self.moduleControlScrollLayout)
 
         if self.moduleInstance is not None:
 
@@ -418,6 +410,19 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.moduleInstance.delete()
         cmds.select(clear = True)
 
+    def _clearLayout(self, layout):
+        """Helper to clear all widgets and layouts from a given layout."""
+        if layout is None:
+            return
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+            elif item.layout():  # Handle nested layouts
+                self._clearLayout(item.layout())
+                item.layout().deleteLater()
 
     def createHLine(self):
         line = QtWidgets.QFrame()
