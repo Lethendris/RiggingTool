@@ -28,8 +28,9 @@ class Blueprint:
     def install_custom(self, joints):
         print('install_custom() methods is not implemented by derived class.')
 
-    def UI(self, blueprint_UI_instance):
+    def UI(self, blueprint_UI_instance, parentLayout):
         self.blueprint_UI_instance = blueprint_UI_instance
+        self.parentLayout = parentLayout
         self.UI_custom()
 
     def UI_custom(self):
@@ -498,13 +499,56 @@ class Blueprint:
 
         return (orientationValues, newCleanParent)
 
+    def setRotateOrderComboBox(self, index, joint):
+        cmds.setAttr(f'{self.moduleNamespace}:{joint}.rotateOrder', index)
+
     def createRotationOrderUIControl(self, joint):
+
         jointName = utils.stripAllNamespaces(joint)[1]
-        attrControlGrp = cmds.attrControlGrp(attribute = f'{joint}.rotateOrder', label = jointName)
 
-        # Get the Qt pointer to the control
-        ptr = omui.MQtUtil.findControl(attrControlGrp)
+        layout = QtWidgets.QHBoxLayout()
+        layout.setAlignment(QtCore.Qt.AlignLeft)
 
-        widget = wrapInstance(int(ptr), QtWidgets.QWidget)
-        print(widget)
-        return widget
+        label = QtWidgets.QLabel(jointName)
+        label.setFixedWidth(80) # Optional: Give label a fixed width for alignment
+        combobox = QtWidgets.QComboBox()
+
+        combobox.addItems(['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'])
+        combobox.setFixedWidth(100) # Optional: Give combobox a fixed width
+
+        layout.addWidget(label)
+        layout.addWidget(combobox)
+
+        # 1. Initialize the combobox to the joint's current rotateOrder
+
+
+        currentRotateOrder = cmds.getAttr(f'{joint}.rotateOrder') # Get the current rotateOrder (integer value) from the joint
+        combobox.setCurrentIndex(currentRotateOrder) # Set the combobox's current index to match the joint's rotateOrder
+
+        # 2. Connect the combobox's signal to a function that updates the joint's rotateOrder
+        def update_joint_rotate_order(index):
+            """
+            This function will be called when the combobox's selected index changes.
+            'index' is the new selected index (0-5) from the combobox.
+            """
+            # Set the joint's rotateOrder attribute in Maya
+            cmds.setAttr(f'{joint}.rotateOrder', index)
+            print(f"Updated {joint}'s rotateOrder to: {combobox.currentText()} (index: {index})")
+
+        # Connect the currentIndexChanged signal to our update function
+        # This ensures that whenever the user selects a new item, the update_joint_rotate_order function is called.
+        combobox.currentIndexChanged.connect(update_joint_rotate_order)
+
+        # Return the layout. The combobox and its connection will persist because
+        # the layout is added to a parent widget/layout in UI_custom.
+        return layout
+
+    def delete(self):
+        print('delete')
+        cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
+        cmds.delete(self.containerName)
+
+        cmds.namespace(setNamespace = ':')
+        cmds.namespace(removeNamespace = self.moduleNamespace)
+
+

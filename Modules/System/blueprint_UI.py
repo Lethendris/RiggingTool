@@ -371,43 +371,39 @@ class Blueprint_UI(QtWidgets.QDialog):
             self.buttons['Rehook'].setEnabled(True)
             self.buttons['Constrain Root > Hook'].setEnabled(True)
             self.buttons['Delete'].setEnabled(True)
+            # Create connections
+            self.buttons['Delete'].clicked.connect(self.deleteModule)
 
             self.moduleInstanceLineEdit.setEnabled(True)
             self.moduleInstanceLineEdit.setText(userSpecifiedName)
 
             self.createModuleSpecificControls()
 
-    def createModuleSpecificControls(self):
 
-        # existingControls =
-        #
-        # insertIndex = self.scrollLayout.count() - 1  # index before spacer
-        #
-        # for moduleData in self.loadedModules.values():
-        #     moduleWidget = ModuleWidget(
-        #         moduleData['name'],
-        #         moduleData['description'],
-        #         moduleData['icon'],
-        #         moduleData['module']
-        #     )
-        #     self.scrollLayout.insertWidget(insertIndex, moduleWidget)
+
+    def createModuleSpecificControls(self):
 
         btn = QtWidgets.QPushButton('Create Module')
         self.moduleControlScrollLayout.insertWidget(0, btn)
 
         existingControls = self.moduleControlScrollLayout.count()
 
-        # if existingControls != 0:
-        #     while self.moduleControlScrollLayout.count():
-        #         item = self.moduleControlScrollLayout.takeAt(0)
-        #         widget = item.widget()
-        #         if widget:
-        #             widget.setParent(None)
-        #             widget.deleteLater()
+        if existingControls != 0:
+            while self.moduleControlScrollLayout.count():
+                item = self.moduleControlScrollLayout.takeAt(0)
+                widget = item.widget()
+                if widget:
+                    widget.setParent(None)
+                    widget.deleteLater()
 
         if self.moduleInstance is not None:
-            widget = self.moduleInstance.UI(self)
-            self.moduleControlScrollLayout.insertWidget(0, btn)
+
+            self.moduleInstance.UI(self, self.moduleControlScrollLayout)
+
+    def deleteModule(self):
+        self.moduleInstance.delete()
+        cmds.select(clear = True)
+
 
     def createHLine(self):
         line = QtWidgets.QFrame()
