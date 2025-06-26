@@ -596,9 +596,6 @@ class Blueprint:
         layout.addWidget(label)
         layout.addWidget(combobox)
 
-        print(joint)
-        print(jointName)
-
         # 1. Initialize the combobox to the joint's current rotateOrder
         currentRotateOrder = cmds.getAttr(f'{joint}.rotateOrder')  # Get the current rotateOrder (integer value) from the joint
         combobox.setCurrentIndex(currentRotateOrder)  # Set the combobox's current index to match the joint's rotateOrder
@@ -711,3 +708,6 @@ class Blueprint:
 
         cmds.container(self.containerName, edit = True, removeNode = container)
         utils.addNodeToContainer(hookContainer, container)
+
+    def rehook(self, newHookObject):
+        print(newHookObject)

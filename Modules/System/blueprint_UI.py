@@ -1,4 +1,3 @@
-
 """
 Base Blueprint Module for Maya Rigging
 
@@ -19,16 +18,19 @@ import maya.OpenMayaUI as omui
 import maya.cmds as cmds
 
 from . import utils
+
 importlib.reload(utils)
 
 projectRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if projectRoot not in sys.path:
     sys.path.append(projectRoot)
 
+
 def mayaMainWindow():
     """Return the Maya main window widget as a Python object"""
     main_window_ptr = omui.MQtUtil.mainWindow()
     return wrapInstance(int(main_window_ptr), QtWidgets.QWidget)
+
 
 class NonInteractivePlainTextEdit(QtWidgets.QPlainTextEdit):
     def __init__(self, text = '', parent = None):
@@ -54,6 +56,7 @@ class NonInteractivePlainTextEdit(QtWidgets.QPlainTextEdit):
     def keyPressEvent(self, event):
         event.accept()
 
+
 class MyPushButton(QtWidgets.QPushButton):
 
     def __init__(self, *a, **kw):
@@ -62,13 +65,12 @@ class MyPushButton(QtWidgets.QPushButton):
         pix_normal = QtGui.QPixmap("my_image.jpg")
         pix_over = pix_normal.copy()
         painter = QtGui.QPainter(pix_over)
-        painter.fillRect(pix_over.rect(), QtGui.QBrush(QtGui.QColor(0,0,0,128)))
+        painter.fillRect(pix_over.rect(), QtGui.QBrush(QtGui.QColor(0, 0, 0, 128)))
         painter.end()
 
         self._icon_normal = QtGui.QIcon(pix_normal)
         self._icon_over = QtGui.QIcon(pix_over)
         self.setIcon(self._icon_normal)
-
 
     def enterEvent(self, event):
         self.setIcon(self._icon_over)
@@ -78,8 +80,9 @@ class MyPushButton(QtWidgets.QPushButton):
         self.setIcon(self._icon_normal)
         return super(MyPushButton, self).leaveEvent(event)
 
+
 class RoundedIconButton(QtWidgets.QPushButton):
-    def __init__(self, imagePath, radius=8, *args, **kwargs):
+    def __init__(self, imagePath, radius = 8, *args, **kwargs):
         """
         A QPushButton with rounded corners and hover/press color variants.
 
@@ -189,11 +192,6 @@ class ModuleWidget(QtWidgets.QWidget):
         self.iconPath = iconPath if iconPath else ""
         self.moduleObject = moduleObject
 
-        self.setupUI()
-
-
-    def setupUI(self):
-
         # MAIN LAYOUT
         self.mainLayout = QtWidgets.QHBoxLayout(self)
         self.mainLayout.setContentsMargins(5, 0, 5, 0)
@@ -201,27 +199,25 @@ class ModuleWidget(QtWidgets.QWidget):
         self.setFixedHeight(90)
 
         # WIDGETS
-        self.imageButton = RoundedIconButton(self.iconPath) # image button
+        self.imageButton = RoundedIconButton(self.iconPath)  # image button
         self.imageButton.setFixedSize(64, 64)
         self.imageButton.setIconSize(QtCore.QSize(64, 64))
 
-        if self.iconPath and os.path.exists(self.iconPath): # set icon for button if available
+        if self.iconPath and os.path.exists(self.iconPath):  # set icon for button if available
             icon = QtGui.QIcon(self.iconPath)
             self.imageButton.setIcon(icon)
         else:
 
-            self.imageButton.setText("Icon") # default icon
+            self.imageButton.setText("Icon")  # default icon
 
+        self.nameLabel = QtWidgets.QLabel(self.moduleName)  # module name label
 
-        self.nameLabel = QtWidgets.QLabel(self.moduleName) # module name label
-
-        self.descriptionField = NonInteractivePlainTextEdit(self.description) # Description text field
+        self.descriptionField = NonInteractivePlainTextEdit(self.description)  # Description text field
         self.descriptionField.setFixedHeight(64)
 
         # CREATE LAYOUTS
-        self.moduleField = QtWidgets.QVBoxLayout() # module description layout
+        self.moduleField = QtWidgets.QVBoxLayout()  # module description layout
         self.moduleField.setContentsMargins(5, 0, 0, 0)
-
 
         # ADD WIDGETS
         self.mainLayout.addWidget(self.imageButton, alignment = QtCore.Qt.AlignBottom)
@@ -231,21 +227,15 @@ class ModuleWidget(QtWidgets.QWidget):
         # CONNECT WIDGETS
         self.imageButton.clicked.connect(self.moduleImageButtonClicked)
 
-
         # ADD TO MAIN LAYOUT
         self.mainLayout.addLayout(self.moduleField)
 
-
+    QtCore.Signal(str, object)
     def moduleImageButtonClicked(self):
         self.install.emit(self.moduleName, self.moduleObject)
 
-    # @QtCore.Slot()
-
-
-
 
 class Blueprint_UI(QtWidgets.QDialog):
-
     ui_instance = None
 
     def __init__(self, modulesDir = None, parent = None):
@@ -266,7 +256,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         # MAIN WINDOW FLAGS
         self.setWindowTitle('Blueprint Module UI')
         self.setObjectName("Blueprint Module UI")
-        self.setFixedSize(400,800)
+        self.setFixedSize(400, 800)
 
         # SETUP UI
         self.setupUI()
@@ -274,7 +264,6 @@ class Blueprint_UI(QtWidgets.QDialog):
         # LOAD MODULES
 
         if self.modulesDir:
-
             self.loadedModules = utils.loadAllModulesFromDirectory(self.modulesDir)  # Load modules if directory is provided
 
             self.addModuleToUI()
@@ -293,9 +282,7 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         userSpecifiedName = f'{baseName}{newSuffix}'
 
-
         hookObj = self.findHookObjectFromSelection()
-
 
         if moduleObject and hasattr(moduleObject, moduleName):
             moduleClass = getattr(moduleObject, moduleName)
@@ -318,6 +305,13 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         return hookObj
 
+    def rehookModuleSetup(self):
+
+        selectedNodes = cmds.ls(selection = True, transforms = True)
+
+        if len(selectedNodes) == 2:
+            newHook = self.findHookObjectFromSelection()
+            self.moduleInstance.rehook(newHook)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -328,18 +322,17 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.deleteScriptJob()
 
     def createScriptJob(self):
-        self.jobNum = cmds.scriptJob(event=['SelectionChanged', self.modifySelected], runOnce = True)
+        self.jobNum = cmds.scriptJob(event = ['SelectionChanged', self.modifySelected], runOnce = True)
 
     def deleteScriptJob(self):
-        cmds.scriptJob(kill=self.jobNum, force=True)
-
+        cmds.scriptJob(kill = self.jobNum, force = True)
 
     def modifySelected(self, *args):
 
         selectedNodes = cmds.ls(selection = True)
 
         self.buttons['Snap Root > Hook'].setEnabled(False)
-        self.buttons['Group Selected'].setEnabled(False)
+        self.buttons['Group Selected'].setEnabled(True)
         self.buttons['Ungroup'].setEnabled(False)
         self.buttons['Mirror Module'].setEnabled(False)
         self.buttons['Rehook'].setEnabled(False)
@@ -384,27 +377,25 @@ class Blueprint_UI(QtWidgets.QDialog):
                 moduleClass = getattr(mod, mod.CLASS_NAME)
                 self.moduleInstance = moduleClass(userSpecifiedName, None)
 
-            self.buttons['Snap Root > Hook'].setEnabled(True)
-            self.buttons['Mirror Module'].setEnabled(True)
-            self.buttons['Rehook'].setEnabled(True)
-            self.buttons['Group Selected'].setEnabled(True)
-            self.buttons['Ungroup'].setEnabled(True)
-            self.buttons['Constrain Root > Hook'].setEnabled(True)
-            self.buttons['Delete'].setEnabled(True)
-            self.moduleInstanceLineEdit.setEnabled(True)
-            self.moduleInstanceLineEdit.setText(userSpecifiedName)
+                self.buttons['Snap Root > Hook'].setEnabled(True)
+                self.buttons['Mirror Module'].setEnabled(True)
+                self.buttons['Rehook'].setEnabled(True)
+                self.buttons['Group Selected'].setEnabled(True)
+                self.buttons['Ungroup'].setEnabled(True)
+                self.buttons['Constrain Root > Hook'].setEnabled(True)
+                self.buttons['Delete'].setEnabled(True)
+                self.moduleInstanceLineEdit.setEnabled(True)
+                self.moduleInstanceLineEdit.setText(userSpecifiedName)
 
-            self.createModuleSpecificControls()
+                self.createModuleSpecificControls()
 
-        self.createScriptJob()
-
+            self.createScriptJob()
 
     def createModuleSpecificControls(self):
 
         self._clearLayout(self.moduleControlScrollLayout)
 
         if self.moduleInstance is not None:
-
             self.moduleInstance.UI(self, self.moduleControlScrollLayout)
 
     def deleteModule(self):
@@ -489,8 +480,6 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self.moduleInstanceNameLabel = QtWidgets.QLabel('Module Instance:')
         self.moduleInstanceLineEdit = QtWidgets.QLineEdit()
-        # self.moduleInstanceLineEdit.setReadOnly(True)
-        # self.moduleInstanceLineEdit.setEnabled(False)
 
         self.symmetryCheckbox = QtWidgets.QCheckBox('Symmetry Move')
 
@@ -523,10 +512,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         }
         """)
 
-
-
         self.lockButton.setFont(buttonFont)
-        # self.lockButton.setFixedHeight(30)
 
         self.publishButton = QtWidgets.QPushButton('PUBLISH')
         self.publishButton.setStyleSheet("""
@@ -561,7 +547,6 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.modulesTabLayout.setSpacing(5)
         self.modulesTabLayout.setAlignment(QtCore.Qt.AlignTop)
 
-
         self.scrollLayout = QtWidgets.QVBoxLayout(self.scrollWidget)
         self.scrollLayout.setContentsMargins(5, 5, 5, 5)
         self.scrollLayout.setSpacing(5)
@@ -590,9 +575,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.moduleInstanceNameLayout.addWidget(self.moduleInstanceNameLabel)
         self.moduleInstanceNameLayout.addWidget(self.moduleInstanceLineEdit)
 
-
         self.gridLayout.addWidget(self.symmetryCheckbox, 2, 2)
-
 
         self.bottomButtonLayout.setAlignment(QtCore.Qt.AlignBottom)
         self.bottomButtonLayout.addWidget(self.createHLine())
@@ -648,8 +631,6 @@ class Blueprint_UI(QtWidgets.QDialog):
             self.gridLayout.addWidget(btn, row, col)
             self.buttons[text] = btn
 
-
-
         self.buttons['Delete'].setStyleSheet("""
         QPushButton {
             background-color: #720000;
@@ -677,7 +658,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Mirror Module'].setEnabled(False)
         self.buttons['Rehook'].setEnabled(False)
         self.buttons['Ungroup'].setEnabled(False)
-        self.buttons['Group Selected'].setEnabled(False)
+        self.buttons['Group Selected'].setEnabled(True)
         self.buttons['Constrain Root > Hook'].setEnabled(False)
         self.buttons['Delete'].setEnabled(False)
 
@@ -695,9 +676,12 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.lockButton.clicked.connect(self.lockClicked)
         self.buttons['Delete'].clicked.connect(self.deleteModule)
         self.moduleInstanceLineEdit.editingFinished.connect(self.renameModule)
+        self.buttons['Rehook'].clicked.connect(self.rehookModuleSetup)
 
     def lockClicked(self):
-        reply = QtWidgets.QMessageBox.question(self, "Lock Blueprints?", "Locking the character will convert current blueprint modules to joints.This action cannot be undone. Modifications to the blueprint system cannot be made after this point.\nDo you want to continue?", QtWidgets.QMessageBox.StandardButton.Ok | QtWidgets.QMessageBox.StandardButton.Cancel)
+        reply = QtWidgets.QMessageBox.question(self, "Lock Blueprints?",
+                                               "Locking the character will convert current blueprint modules to joints.This action cannot be undone. Modifications to the blueprint system cannot be made after this point.\nDo you want to continue?",
+                                               QtWidgets.QMessageBox.StandardButton.Ok | QtWidgets.QMessageBox.StandardButton.Cancel)
         if reply == QtWidgets.QMessageBox.StandardButton.Cancel:
             return
         else:
@@ -738,8 +722,6 @@ class Blueprint_UI(QtWidgets.QDialog):
             for module in moduleInstances:
                 module[0].lockPhase2(module[1])
 
-
-
     def addModuleToUI(self):
         """
         Adds all loaded modules to the UI by creating a ModuleWidget for each
@@ -758,9 +740,8 @@ class Blueprint_UI(QtWidgets.QDialog):
             self.scrollLayout.addWidget(module_widget)
             module_widget.install.connect(self.installModule)
 
-
     @classmethod
-    def showUI(cls, modulesDir=None):
+    def showUI(cls, modulesDir = None):
         """Show the Blueprint Module UI
 
         Args:
@@ -769,7 +750,6 @@ class Blueprint_UI(QtWidgets.QDialog):
         Returns:
             Blueprint_UI: The UI instance.
         """
-
 
         if not cls.ui_instance:
             cls.ui_instance = Blueprint_UI(modulesDir)
@@ -784,7 +764,6 @@ class Blueprint_UI(QtWidgets.QDialog):
     def renameModule(self):
         newName = self.moduleInstanceLineEdit.text()
 
-
         self.moduleInstance.renameModuleInstance(newName)
 
         previousSelection = cmds.ls(selection = True)
@@ -794,10 +773,6 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         else:
             cmds.select(clear = True)
-
-
-
-
 
 
 '''
