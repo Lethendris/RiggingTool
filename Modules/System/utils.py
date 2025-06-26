@@ -170,6 +170,7 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     # Create pole vector if none provided
     if not poleVectorObject:
         poleVectorObject = cmds.spaceLocator(name = f'{ikHandle}_poleVectorLocator')[0]
+        containedNodes.append(poleVectorObject)
 
         cmds.xform(poleVectorObject, worldSpace = True, absolute = True,
                    translation = cmds.xform(rootJoint, query = True, worldSpace = True, translation = True))
@@ -182,8 +183,7 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
 
     # Create locators for measuring distance
     rootLocator = cmds.spaceLocator(name = f'{rootJoint}_rootPosLocator')[0]
-    rootLocator_pointConstraint = \
-        cmds.pointConstraint(rootJoint, rootLocator, maintainOffset = False, name = f'{rootLocator}_pointConstraint')[0]
+    rootLocator_pointConstraint = cmds.pointConstraint(rootJoint, rootLocator, maintainOffset = False, name = f'{rootLocator}_pointConstraint')[0]
 
     endLocator = cmds.spaceLocator(name = f'{endJoint}_endPosLocator')[0]
     cmds.xform(endLocator, worldSpace = True, absolute = True,
@@ -439,6 +439,21 @@ def createHierarchyConnector(name):
 
     # Create container and add nodes
     container = createContainer(name = f'{name}_hierarchy_container', nodesIn = [connector, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
+                                includeShapes = True)
+
+    return [container, connector]
+
+def createHookConnector(name):
+    cylinder = cmds.cylinder(name = f'{name}_cylinder', radius = 0.2, heightRatio = 5, ch = False)[0]
+
+    cmds.move(0.5, 0, 0, f'{cylinder}.cv[0:3][0:7]', relative = True)
+
+    material, materialInfo = assignMaterial(cylinder, color = (0.2, 0.5, 0.5), diffuse = 0.2)
+
+    connector = cmds.rename(cylinder, f'{name}_hook_connector', ignoreShape = True)
+
+    # Create container and add nodes
+    container = createContainer(name = f'{name}_hook_container', nodesIn = [connector, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
                                 includeShapes = True)
 
     return [container, connector]

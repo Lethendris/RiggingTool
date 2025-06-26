@@ -262,14 +262,31 @@ class ModuleWidget(QtWidgets.QWidget):
         userSpecifiedName = f'{baseName}{newSuffix}'
 
 
+        hookObj = self.findHookObjectFromSelection()
+
+
         if self.moduleObject and hasattr(self.moduleObject, self.moduleName):
             moduleClass = getattr(self.moduleObject, self.moduleName)
-            moduleInstance = moduleClass(userSpecifiedName)
+            moduleInstance = moduleClass(userSpecifiedName, hookObj)
             moduleInstance.install()
 
             moduleTransform = f'{self.moduleName}__{userSpecifiedName}:module_transform'
             cmds.select(moduleTransform)
             cmds.setToolTo('moveSuperContext')
+
+    def findHookObjectFromSelection(self):
+        selectedObjects = cmds.ls(selection = True, transforms = True)
+
+        numberOfSelectedObjects = len(selectedObjects)
+
+        hookObj = None
+
+        if numberOfSelectedObjects != 0:
+            hookObj = selectedObjects[numberOfSelectedObjects - 1] # pick last selected as hookObj
+
+        return hookObj
+
+
 
 class Blueprint_UI(QtWidgets.QDialog):
 
@@ -370,7 +387,7 @@ class Blueprint_UI(QtWidgets.QDialog):
                 importlib.reload(mod)
 
                 moduleClass = getattr(mod, mod.CLASS_NAME)
-                self.moduleInstance = moduleClass(userSpecifiedName = userSpecifiedName)
+                self.moduleInstance = moduleClass(userSpecifiedName, None)
 
             self.buttons['Snap Root > Hook'].setEnabled(True)
             self.buttons['Mirror Module'].setEnabled(True)
@@ -686,7 +703,6 @@ class Blueprint_UI(QtWidgets.QDialog):
 
     def lockClicked(self):
         reply = QtWidgets.QMessageBox.question(self, "Lock Blueprints?", "Locking the character will convert current blueprint modules to joints.This action cannot be undone. Modifications to the blueprint system cannot be made after this point.\nDo you want to continue?", QtWidgets.QMessageBox.StandardButton.Ok | QtWidgets.QMessageBox.StandardButton.Cancel)
-
         if reply == QtWidgets.QMessageBox.StandardButton.Cancel:
             return
         else:
@@ -719,7 +735,7 @@ class Blueprint_UI(QtWidgets.QDialog):
                 importlib.reload(mod)
 
                 moduleClass = getattr(mod, mod.CLASS_NAME)
-                moduleInst = moduleClass(userSpecifiedName = module[1])
+                moduleInst = moduleClass(module[1], None)
                 moduleInfo = moduleInst.lockPhase1()
 
                 moduleInstances.append((moduleInst, moduleInfo))
@@ -770,11 +786,8 @@ class Blueprint_UI(QtWidgets.QDialog):
             cls.ui_instance.activateWindow()
 
     def renameModule(self):
-        print("Rename Module")
-        """Rename the module"""
         newName = self.moduleInstanceLineEdit.text()
 
-        print(newName)
 
         self.moduleInstance.renameModuleInstance(newName)
 
@@ -785,6 +798,8 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         else:
             cmds.select(clear = True)
+
+
 
 
 

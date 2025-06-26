@@ -9,10 +9,10 @@ MODULE_DESCRIPTION = "Creates 2 joints with control for 1st joint's orientation 
 MODULE_ICON = os.path.join(os.environ['RIGGING_TOOL_ROOT'], 'Icons/_singleJointSeg.xpm')  # Optional
 
 class SingleJointSegment(blueprintMod.Blueprint):
-    def __init__(self, userSpecifiedName):
+    def __init__(self, userSpecifiedName, hookObj):
         jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 0.0, 0.0]]]
 
-        super().__init__(CLASS_NAME, userSpecifiedName, jointInfo)
+        super().__init__(CLASS_NAME, userSpecifiedName, jointInfo, hookObj)
 
     def install_custom(self, joints):
         pass

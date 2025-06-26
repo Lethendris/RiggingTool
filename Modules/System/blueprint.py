@@ -1,15 +1,13 @@
 import os
 
 import maya.cmds as cmds
-from maya import OpenMayaUI as omui
-from PySide6 import QtCore, QtWidgets, QtGui
-from shiboken6 import wrapInstance
+from PySide6 import QtCore, QtWidgets
 import System.utils as utils
 import importlib
 importlib.reload(utils)
 
 class Blueprint:
-    def __init__(self, moduleName, userSpecifiedName, jointInfo):
+    def __init__(self, moduleName, userSpecifiedName, jointInfo, hookObjectIn):
 
         """
         Initialize the ModuleA instance with a given user-specified name.
@@ -23,6 +21,14 @@ class Blueprint:
         self.jointInfo = jointInfo
         self.moduleNamespace = f'{self.moduleName}__{self.userSpecifiedName}'
         self.containerName = f'{self.moduleNamespace}:module_container'
+        self.hookObject = None
+
+        if hookObjectIn is not None:
+            before, split, after = hookObjectIn.rpartition('_translation_control')
+            if split != '' and after == '':
+                self.hookObject = hookObjectIn
+
+
 
     # Methods intended for overriding by derived class
     def install_custom(self, joints):
@@ -304,9 +310,9 @@ class Blueprint:
 
         rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
 
-
         utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
 
+        self.initializeHook(translationControls[0])
 
         # Create stretchy segments between each joint pair.
         for index in range(len(joints) - 1):
@@ -443,7 +449,10 @@ class Blueprint:
             container, connector = utils.createHierarchyConnector(name)
             parentGrp = self.hierarchyConnectorsGrp
 
-        # container, control, constrainedGrp = self.createStretchyObject(connectorType, parentJoint, childJoint)
+        elif connectorType == 'hook':
+            container, connector = utils.createHookConnector(name)
+            parentGrp = None
+
         constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstraint_grp')
         cmds.parent(connector, constrainedGrp, absolute = True)
         parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)[0]
@@ -453,14 +462,14 @@ class Blueprint:
 
         scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
 
-        cmds.parent(constrainedGrp, parentGrp, relative = True)
+        if parentGrp:
+            cmds.parent(constrainedGrp, parentGrp, relative = True)
 
         # Add to containers.
         utils.addNodeToContainer(container, [constrainedGrp, parentConstraint, scaleConstraint], includeHierarchyBelow = True)
         utils.addNodeToContainer(self.containerName, container)
 
         # Parent the visual representation group under the hierarchy group.
-        # cmds.parent(constrainedGrp, parentGrp, relative = True)
         if connectorType == 'orientation':
             niceName = utils.stripLeadingNamespace(parentJoint)[1]
             attrName = f'{niceName}_orientation'
@@ -500,18 +509,22 @@ class Blueprint:
         return (orientationValues, newCleanParent)
 
     def createRotationOrderUIControl(self, joint):
-
-        jointName = utils.stripAllNamespaces(joint)[1]
-
         layout = QtWidgets.QHBoxLayout()
         layout.setAlignment(QtCore.Qt.AlignLeft)
 
+        # Check if the joint exists before creating any UI elements
+        if not cmds.objExists(joint):
+            print(f"Info: Joint '{joint}' does not exist. Skipping creation of rotateOrder control.")
+            return layout  # Return an empty layout if the joint doesn't exist
+
+        jointName = utils.stripAllNamespaces(joint)[1]
+
         label = QtWidgets.QLabel(jointName)
-        label.setFixedWidth(80) # Optional: Give label a fixed width for alignment
+        label.setFixedWidth(80)  # Optional: Give label a fixed width for alignment
         combobox = QtWidgets.QComboBox()
 
         combobox.addItems(['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'])
-        combobox.setFixedWidth(100) # Optional: Give combobox a fixed width
+        combobox.setFixedWidth(100)  # Optional: Give combobox a fixed width
 
         layout.addWidget(label)
         layout.addWidget(combobox)
@@ -519,30 +532,27 @@ class Blueprint:
         print(joint)
         print(jointName)
 
-        cmds.window()
-        cmds.columnLayout()
-        cmds.attrControlGrp(attribute=f'{joint}.rotateOrder', label=jointName)
-        cmds.showWindow()
-
         # 1. Initialize the combobox to the joint's current rotateOrder
+        currentRotateOrder = cmds.getAttr(f'{joint}.rotateOrder')  # Get the current rotateOrder (integer value) from the joint
+        combobox.setCurrentIndex(currentRotateOrder)  # Set the combobox's current index to match the joint's rotateOrder
 
+        # 2. Connect the combobox's signal to a function that updates the joint's rotateOrder
+        def update_joint_rotate_order(index):
+            """
+            This function will be called when the combobox's selected index changes.
+            'index' is the new selected index (0-5) from the combobox.
+            """
+            # Set the joint's rotateOrder attribute in Maya
+            # Always check if the joint still exists before attempting to set the attribute
+            if cmds.objExists(joint):
+                cmds.setAttr(f'{joint}.rotateOrder', index)
+                print(f"Updated {joint}'s rotateOrder to: {combobox.currentText()} (index: {index})")
+            else:
+                print(f"Error: Cannot update rotateOrder for '{joint}'. Joint no longer exists.")
 
-        # currentRotateOrder = cmds.getAttr(f'{joint}.rotateOrder') # Get the current rotateOrder (integer value) from the joint
-        # combobox.setCurrentIndex(currentRotateOrder) # Set the combobox's current index to match the joint's rotateOrder
-        #
-        # # 2. Connect the combobox's signal to a function that updates the joint's rotateOrder
-        # def update_joint_rotate_order(index):
-        #     """
-        #     This function will be called when the combobox's selected index changes.
-        #     'index' is the new selected index (0-5) from the combobox.
-        #     """
-        #     # Set the joint's rotateOrder attribute in Maya
-        #     cmds.setAttr(f'{joint}.rotateOrder', index)
-        #     print(f"Updated {joint}'s rotateOrder to: {combobox.currentText()} (index: {index})")
-        #
-        # # Connect the currentIndexChanged signal to our update function
-        # # This ensures that whenever the user selects a new item, the update_joint_rotate_order function is called.
-        # combobox.currentIndexChanged.connect(update_joint_rotate_order)
+        # Connect the currentIndexChanged signal to our update function
+        # This ensures that whenever the user selects a new item, the update_joint_rotate_order function is called.
+        combobox.currentIndexChanged.connect(update_joint_rotate_order)
 
         # Return the layout. The combobox and its connection will persist because
         # the layout is added to a parent widget/layout in UI_custom.
@@ -582,3 +592,62 @@ class Blueprint:
             cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
 
             return True
+
+    def initializeHook(self, rootTranslationControl):
+        unhookedLocator = cmds.spaceLocator(name = f'{self.moduleNamespace}:unhookedTarget')[0]
+        cmds.pointConstraint(rootTranslationControl, unhookedLocator, offset = (0, 0.001, 0), name = f'{unhookedLocator}_pointConstraint')
+
+        cmds.setAttr(f'{unhookedLocator}.visibility', 0)
+
+        if self.hookObject is None:
+            self.hookObject = unhookedLocator
+
+        rootPos = cmds.xform(rootTranslationControl, query = True, worldSpace = True, translation = True)
+        targetPos = cmds.xform(self.hookObject, query = True, worldSpace = True, translation = True)
+
+        cmds.select(clear = True)
+
+        rootJointWithoutNamespace = 'hook_root_joint'
+        rootJoint = cmds.joint(name = f'{self.moduleNamespace}:{rootJointWithoutNamespace}', position = rootPos)
+        cmds.setAttr(f'{rootJoint}.visibility', 0)
+
+        targetJointWithoutNamespace = 'hook_target_joint'
+        targetJoint = cmds.joint(name = f'{self.moduleNamespace}:{targetJointWithoutNamespace}', position = targetPos)
+        cmds.setAttr(f'{targetJoint}.visibility', 0)
+
+        cmds.joint(rootJoint, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
+
+        hookGrp = cmds.group(rootJoint, unhookedLocator, name = f'{self.moduleNamespace}:hook_grp', parent = self.moduleGrp)
+        hookContainer = utils.createContainer(name = f'{self.moduleNamespace}:hook_container', nodesIn = hookGrp, includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True)
+
+        utils.addNodeToContainer(self.containerName, hookContainer)
+
+        for joint in [rootJoint, targetJoint]:
+            jointName = utils.stripAllNamespaces(joint)[1]
+            cmds.container(hookContainer, edit = True, publishAndBind = (f'{joint}.rotate', f'{jointName}_R'))
+
+        ikNodes = utils.basicStretchyIK(rootJoint = rootJoint, endJoint = targetJoint, container = hookContainer, lockMinimumLength = False)
+        ikHandle = ikNodes['ikHandle']
+        rootLocator = ikNodes['rootLocator']
+        endLocator = ikNodes['endLocator']
+        poleVectorLocator = ikNodes['poleVectorObject']
+
+        rootPointConstraint = cmds.pointConstraint(f'{rootTranslationControl}', rootJoint, maintainOffset = False, name = f'{rootJoint}_pointConstraint')[0]
+        targetPointConstraint = cmds.pointConstraint(self.hookObject, endLocator, maintainOffset = False, name = f'{self.moduleNamespace}:hook_pointConstraint')[0]
+
+        utils.addNodeToContainer(hookContainer, [rootPointConstraint, targetPointConstraint])
+
+        for node in [ikHandle, rootLocator, endLocator, poleVectorLocator]:
+            cmds.parent(node, hookGrp, absolute = True)
+            cmds.setAttr(f'{node}.visibility', 0)
+
+        container, connector, constrainedGrp = self.createConnector(connectorType = 'hook', name = 'hook_connector', parentJoint = rootJoint, childJoint = targetJoint)
+        # cmds.parent(constrainedGrp, hookGrp, absolute = True)
+
+        # cmds.container(self.containerName, edit = True, removeNode = container)
+        # utils.addNodeToContainer(hookContainer, container)
+
+
+
+
+
