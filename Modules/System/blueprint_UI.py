@@ -16,6 +16,7 @@ from PySide6 import QtCore, QtWidgets, QtGui
 from shiboken6 import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
+from functools import partial
 
 from . import utils
 
@@ -231,6 +232,7 @@ class ModuleWidget(QtWidgets.QWidget):
         self.mainLayout.addLayout(self.moduleField)
 
     QtCore.Signal(str, object)
+
     def moduleImageButtonClicked(self):
         self.install.emit(self.moduleName, self.moduleObject)
 
@@ -312,6 +314,27 @@ class Blueprint_UI(QtWidgets.QDialog):
         if len(selectedNodes) == 2:
             newHook = self.findHookObjectFromSelection()
             self.moduleInstance.rehook(newHook)
+
+        else:
+            self.deleteScriptJob()
+
+            currentSelection = cmds.ls(selection = True)
+            cmds.headsUpMessage('Please select the joint you want to re-hook to. Clear selection to un-hook')
+
+            cmds.scriptJob(event = ('SelectionChanged', partial(self.rehookModule_callback, currentSelection)), runOnce = True)
+
+    def rehookModule_callback(self, currentSelection):
+
+        newHook = self.findHookObjectFromSelection()
+        self.moduleInstance.rehook(newHook)
+
+        if len(currentSelection) > 0:
+            cmds.select(currentSelection, replace = True)
+
+        else:
+            cmds.select(clear = True)
+
+        self.createScriptJob()
 
     def showEvent(self, event):
         super().showEvent(event)
