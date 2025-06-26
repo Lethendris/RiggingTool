@@ -1,61 +1,130 @@
-import os
+"""
+Base Blueprint Module for Maya Rigging
 
+This module defines the foundational `Blueprint` class, which serves as a base for creating
+rigging modules in Maya. It provides core functionalities for managing module instances,
+UI integration, and the installation process of module-specific components like joints
+and controls. Derived classes are expected to override certain methods to implement
+module-specific logic.
+"""
+
+import os
 import maya.cmds as cmds
 from PySide6 import QtCore, QtWidgets
 import System.utils as utils
 import importlib
-importlib.reload(utils)
+
+importlib.reload(utils)  # Reload the utils module to ensure the latest version is used.
+
 
 class Blueprint:
+    """
+    The base class for all rigging blueprint modules.
+
+    This class provides the fundamental structure and methods for a rigging module,
+    including initialization, UI integration, and the two-phase installation process
+    (lockPhase1 and lockPhase2).
+
+    Attributes:
+        moduleName (str): The base name of the module (e.g., 'arm', 'leg').
+        userSpecifiedName (str): A unique name given by the user for this instance of the module.
+        jointInfo (list): A list of tuples, where each tuple contains (joint_name, joint_position).
+        moduleNamespace (str): The unique namespace for this module instance in Maya (e.g., 'arm__instance_1').
+        containerName (str): The name of the main container node for this module in Maya.
+        hookObject (str): The name of the object in Maya to which this module should be hooked.
+
+    """
+
     def __init__(self, moduleName, userSpecifiedName, jointInfo, hookObjectIn):
 
         """
-        Initialize the ModuleA instance with a given user-specified name.
+        Initializes a new instance of the Blueprint module.
 
         Args:
-            userSpecifiedName (str): Custom name to uniquely identify this module instance.
+            moduleName (str): The base name of the module.
+            userSpecifiedName (str): A custom name to uniquely identify this module instance.
+            jointInfo (list): A list of tuples, each containing (joint_name, joint_position).
+            hookObjectIn (str): The name of a potential hook object from the Maya selection.
+                                This is typically a translation control from another module.
         """
 
-        self.moduleName = moduleName # Constant module base name (should be defined externally).
+        self.moduleName = moduleName
         self.userSpecifiedName = userSpecifiedName
         self.jointInfo = jointInfo
-        self.moduleNamespace = f'{self.moduleName}__{self.userSpecifiedName}'
-        self.containerName = f'{self.moduleNamespace}:module_container'
+        self.moduleNamespace = f'{self.moduleName}__{self.userSpecifiedName}'  # Construct the unique namespace for this module instance.
+        self.containerName = f'{self.moduleNamespace}:module_container'  # Construct the name for the main container node.
         self.hookObject = None
 
+        # Determine if the provided hookObjectIn is a valid translation control.
         if hookObjectIn is not None:
+            # Check if the object name ends with '_translation_control' and has no suffix after it.
             before, split, after = hookObjectIn.rpartition('_translation_control')
             if split != '' and after == '':
                 self.hookObject = hookObjectIn
 
-
-
     # Methods intended for overriding by derived class
     def install_custom(self, joints):
-        print('install_custom() methods is not implemented by derived class.')
+        """
+        Placeholder method for custom installation logic specific to derived classes.
+
+        Derived classes should override this method to implement any unique setup
+        or connections required after the base installation process.
+
+        Args:
+            joints (list): A list of the created joint names in Maya.
+        """
 
     def UI(self, blueprint_UI_instance, parentLayout):
+        """
+        Initializes the UI for this module within the Blueprint UI.
+
+        This method sets up references to the main Blueprint UI instance and the parent
+        layout, then calls the `UI_custom` method for derived-class specific UI elements.
+
+        Args:
+            blueprint_UI_instance (Blueprint_UI): The main Blueprint UI instance.
+            parentLayout (QtWidgets.QLayout): The layout to which module-specific UI elements should be added.
+        """
+
         self.blueprint_UI_instance = blueprint_UI_instance
         self.parentLayout = parentLayout
         self.UI_custom()
 
     def UI_custom(self):
-        pass
+        """
+        Placeholder method for custom UI creation logic specific to derived classes.
+
+        Derived classes should override this method to add their own unique UI controls
+        and widgets to the `parentLayout` provided in the `UI` method.
+        """
 
     def lockPhase1(self):
-        # Gather and return all required information from this module's control objects
-        # joint positions = list of joint positions, from root down the hierarchy
-        # joint orientations = list of orientations, or a list of axis information (orientJoint and secondaryAxisOrient for joint command)
-        # these are passed in the following tuple : (orientations, None) or (None, axisInfo)
-        # jointRotationOrders = list of joint rotation orders (integer values gathered with getAttr)
-        # jointPreferredAngles = list of joint preferred angles, optional (can pass None)
-        # hookObject = self.findHookObjectForLock()
-        # rootTransform = a bool, either True or False. True = R, T, and S on root joint. False = R only.
-        # moduleInfo = (jointPositions, jointOrientations, jointRotationOrders, jointPreferredAngles, hookObject, rootTransform
-        # return moduleInfo
+        """
+        First phase of the locking process for a blueprint module.
+
+        This method is intended to gather and return all necessary information
+        from the module's control objects before they are deleted.
+
+        Returns:
+            tuple or None: A tuple containing:
+                           (jointPositions, jointOrientations, jointRotationOrders,
+                           jointPreferredAngles, hookObject, rootTransform)
+                           Returns None if not implemented by the derived class.
+        """
+
         return None
 
     def lockPhase2(self, moduleInfo):
+        """
+        Second phase of the locking process for a blueprint module.
+
+        This method takes the gathered `moduleInfo` from `lockPhase1` and uses it
+        to create the final, production-ready joints and their associated utility nodes.
+
+        Args:
+            moduleInfo (tuple): A tuple containing all necessary joint and module information
+                                 as returned by `lockPhase1`.
+        """
 
         jointPositions = moduleInfo[0]
         numJoints = len(jointPositions)
@@ -64,7 +133,7 @@ class Blueprint:
         orientWithAxis = False
         pureOrientations = False
 
-        if jointOrientations[0] == None:
+        if jointOrientations[0] is None:  # Determine if orientations are pure rotations or axis information.
             orientWithAxis = True
             jointOrientations = jointOrientations[1]
 
@@ -83,16 +152,14 @@ class Blueprint:
         if jointPreferredAngles is not None:
             numPreferredAngles = len(jointPreferredAngles)
 
-        # hook object = moduleInfo[4]
+        # hook object = moduleInfo[4] (not directly used in this method, but part of moduleInfo)
 
         rootTransform = moduleInfo[5]
 
-        # Delete blueprint controls
-
-        cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
+        cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)  # Delete blueprint controls and unlock the container.
         cmds.delete(self.containerName, hierarchy = 'below')
 
-        cmds.namespace(setNamespace = ':')
+        cmds.namespace(setNamespace = ':')  # Set current namespace to root.
 
         jointRadius = 1
 
@@ -101,81 +168,88 @@ class Blueprint:
 
         newJoints = []
 
-        for i in range(numJoints):
+        for i in range(numJoints):  # Create new joints based on the gathered information.
             newJoint = ''
 
             cmds.select(clear = True)
 
             if orientWithAxis:
 
+                # Create joint with specified position and default rotation order.
                 newJoint = cmds.joint(name = f'{self.moduleNamespaces}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], rotationOrder = 'xyz', radius = jointRadius)
 
                 if i != 0:
-                    cmds.parent(newJoint, newJoints[i-1], absolute = True)
+                    cmds.parent(newJoint, newJoints[i - 1], absolute = True)  # Parent the joint to the previous one in the hierarchy.
                     offsetIndex = i - 1
 
                     if offsetIndex < numOrientations:
+                        # Apply joint orientation and secondary axis orientation.
                         cmds.joint(newJoints[offsetIndex], edit = True, orientJoint = jointOrientations[offsetIndex][0], secondaryAxisOrient = jointOrientations[offsetIndex][1])
 
+                        # Freeze transformations to apply the orientation.
                         cmds.makeIdentity(newJoint, rotate = True, apply = True)
 
             else:
                 if i != 0:
-                    cmds.select(newJoints[i-1])
+                    cmds.select(newJoints[i - 1])
 
                 jointOrientation = [0.0, 0.0, 0.0]
 
                 if i < numOrientations:
                     jointOrientation = [jointOrientations[i][0], jointOrientations[i][1], jointOrientations[i][2]]
 
+                # Create joint with specified position and orientation.
                 newJoint = cmds.joint(name = f'{self.moduleNamespace}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], orientation = jointOrientation, rotationOrder = 'xyz', radius = jointRadius)
 
             newJoints.append(newJoint)
 
-            if i < numRotationOrders:
+            if i < numRotationOrders:  # Apply rotation order if available.
                 cmds.setAttr(f'{newJoint}.rotateOrder', int(jointRotationOrders[i]))
 
-            if i < numPreferredAngles:
+            if i < numPreferredAngles:  # Apply preferred angles if available.
                 cmds.setAttr(f'{newJoint}.preferredAngleX', jointPreferredAngles[i][0])
                 cmds.setAttr(f'{newJoint}.preferredAngleY', jointPreferredAngles[i][1])
                 cmds.setAttr(f'{newJoint}.preferredAngleZ', jointPreferredAngles[i][2])
 
+            cmds.setAttr(f'{newJoint}.segmentScaleCompensate', 0)  # Disable segment scale compensate for all new joints.
 
-            cmds.setAttr(f'{newJoint}.segmentScaleCompensate', 0)
-
-        blueprintGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:blueprint_joints_grp')
+        blueprintGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:blueprint_joints_grp')  # Group the newly created blueprint joints.
         cmds.parent(newJoints[0], blueprintGrp, absolute = True)
 
-        creationPoseGrpNodes = cmds.duplicate(blueprintGrp, name = f'{self.moduleNamespace}:creationPose_joints_grp', renameChildren = True)
+        creationPoseGrpNodes = cmds.duplicate(blueprintGrp, name = f'{self.moduleNamespace}:creationPose_joints_grp', renameChildren = True)  # Duplicate the blueprint group to create a creation pose group.
         creationPoseGrp = creationPoseGrpNodes[0]
 
         creationPoseGrpNodes.pop(0)
 
-        for index, node in enumerate(creationPoseGrpNodes):
+        for index, node in enumerate(creationPoseGrpNodes):  # Rename and hide the duplicated joints.
             renamedNode = cmds.rename(node, f'{self.moduleNamespace}:creationPose_{self.jointInfo[index][0]}')
             cmds.setAttr(f'{renamedNode}.visibility', 0)
 
-        cmds.addAttr(blueprintGrp, attributeType = 'bool', defaultValue = 0, longName = 'controlModulesInstalled', keyable = False)
+        cmds.addAttr(blueprintGrp, attributeType = 'bool', defaultValue = 0, longName = 'controlModulesInstalled', keyable = False)  # Add a custom attribute to the blueprint group for installed modules.
 
         settingsLocator = cmds.spaceLocator(name = f'{self.moduleNamespace}:SETTINGS')[0]
         cmds.setAttr(f'{settingsLocator}.visibility', 0)
 
-        cmds.addAttr(settingsLocator, attributeType = 'enum', longName = 'activeModule', enumName = 'None:', keyable = False)
+        cmds.addAttr(settingsLocator, attributeType = 'enum', longName = 'activeModule', enumName = 'None:', keyable = False)  # Add attributes to the settings locator for active module and creation pose weight.
         cmds.addAttr(settingsLocator, attributeType = 'float', longName = 'creationPoseWeight', defaultValue = 1, keyable = False)
-        
+
         utilityNodes = []
 
-        for index, joint in enumerate(newJoints):
+        for index, joint in enumerate(newJoints):  # Create utility nodes for joint rotations and translations.
             if index < (numJoints - 1) or numJoints == 1:
+                # Create plusMinusAverage node for joint rotations.
                 addNode = cmds.createNode('plusMinusAverage', name = f'{joint}_addRotations')
                 cmds.connectAttr(f'{addNode}.output3D', f'{joint}.rotate', force = True)
                 utilityNodes.append(addNode)
 
+                # Create multiplyDivide node for dummy rotations.
                 dummyRotationsMultiply = cmds.createNode('multiplyDivide', name = f'{joint}_dummyRotationsMultiply')
                 cmds.connectAttr(f'{dummyRotationsMultiply}.output', f'{addNode}.input3D[0]', force = True)
                 utilityNodes.append(dummyRotationsMultiply)
 
             if index > 0:
+
+                # For child joints, handle translateX.
                 originalTx = cmds.getAttr(f'{joint}.tx')
                 addTxNode = cmds.createNode('plusMinusAverage', name = f'{joint}_addTx')
                 cmds.connectAttr(f'{addTxNode}.output1D', f'{joint}.translateX', force = True)
@@ -188,7 +262,10 @@ class Blueprint:
                 utilityNodes.append(originalTxMultiply)
 
             else:
+                # For the root joint, handle translation and scale if rootTransform is True.
                 if rootTransform:
+
+                    # Translation
                     originalTranslates = cmds.getAttr(f'{joint}.translate')[0]
                     addTranslateNode = cmds.createNode('plusMinusAverage', name = f'{joint}_addTranslate')
                     cmds.connectAttr(f'{addTranslateNode}.output3D', f'{joint}.translate', force = True)
@@ -222,39 +299,37 @@ class Blueprint:
         blueprintNodes.append(blueprintGrp)
         blueprintNodes.append(creationPoseGrp)
 
-        blueprintContainer = utils.createContainer(name = f'{self.moduleNamespace}:blueprint_container', nodesIn = blueprintNodes, includeHierarchyBelow = True, includeShaders = True,
-                                                   includeTransform = True, includeShapes = True)
+        # Create a container for the blueprint nodes.
+        blueprintContainer = utils.createContainer(name = f'{self.moduleNamespace}:blueprint_container', nodesIn = blueprintNodes, includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True)
 
-        moduleGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:module_grp')
-        cmds.parent(settingsLocator, moduleGrp, absolute = True)
+        moduleGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:module_grp')  # Create a main group for the module.
+        cmds.parent(settingsLocator, moduleGrp, absolute = True)  # Parent blueprint and creation pose groups under the main module group.
 
         # TEMP
         for group in [blueprintGrp, creationPoseGrp]:
             cmds.parent(group, moduleGrp, absolute = True)
         # END TEMP
 
-        moduleContainer = utils.createContainer(name = f'{self.moduleNamespace}:module_container', nodesIn = [moduleGrp, settingsLocator, blueprintContainer], includeHierarchyBelow = True,
-                                                includeShaders = True, includeTransform = True, includeShapes = True)
+        # Create the main module container and add relevant nodes.
+        moduleContainer = utils.createContainer(name = f'{self.moduleNamespace}:module_container', nodesIn = [moduleGrp, settingsLocator, blueprintContainer], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
+                                                includeShapes = True)
 
-        cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.activeModule', 'activeModule'))
+        cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.activeModule', 'activeModule'))  # Publish attributes from the settings locator to the module container.
         cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.creationPoseWeight', 'creationPoseWeight'))
 
         # TEMP
-        cmds.lockNode(moduleContainer, lock = True, lockUnpublished = True)
+        cmds.lockNode(moduleContainer, lock = True, lockUnpublished = True)  # Lock the module container to prevent accidental edits.
         # END TEMP
-
 
     # BASE CLASS METHODS
     def install(self):
-
         """
-        Set up the module in the Maya scene by creating joints, control groups,
-        containers, and applying stretchy IK functionality.
-        """
+        Installs the blueprint module in the Maya scene.
 
-        # Ensure we’re in the root namespace and create a unique one for this module.
-        # cmds.namespace(setNamespace = ':')
-        # cmds.namespace(addNamespace = self.moduleNameSpace)
+        This method creates the necessary groups, joints, controls, and sets up
+        connections for the module. It also calls `install_custom` for derived-class
+        specific installation logic.
+        """
 
         # Create groups to organize joints and visual representation.
         self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:joints_grp')
@@ -262,15 +337,11 @@ class Blueprint:
         self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:orientationConnectors_grp')
         self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, name = f'{self.moduleNamespace}:module_grp')
 
-        # Create a container and include the hierarchy.
-        utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)
+        utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)  # Create a container and include the hierarchy.
 
         cmds.select(clear = True)
 
-        # Create joints as defined in self.jointInfo.
-
-        joints = []
-
+        joints = []  # Create joints as defined in self.jointInfo.
         for index, (jointName, jointPos) in enumerate(self.jointInfo):
             parentName = ''
 
@@ -281,78 +352,64 @@ class Blueprint:
             jointName_full = cmds.joint(name = f'{self.moduleNamespace}:{jointName}', position = jointPos)
             joints.append(jointName_full)
 
-            # Hide joint from view
-            cmds.setAttr(f'{jointName_full}.visibility', 0)
+            cmds.setAttr(f'{jointName_full}.visibility', 0)  # Hide joint from view.
 
-            # Add joint to the module container.
-            utils.addNodeToContainer(self.containerName, jointName_full)
+            utils.addNodeToContainer(self.containerName, jointName_full)  # Add joint to the module container.
 
-            # Publish joint rotate and rotateOrder attributes.
-            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_R'))
+            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_R'))  # Publish joint rotate and rotateOrder attributes to the container.
             cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_rotateOrder'))
 
-            # Orient the joint properly if it's not the first one.
-            if index > 0:
+            if index > 0:  # Orient the joint properly if it's not the first one.
                 cmds.joint(parentName, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
 
-        # Parent the root joint to the joints group.
-        cmds.parent(joints[0], self.jointsGrp, absolute = True)
+        cmds.parent(joints[0], self.jointsGrp, absolute = True)  # Parent the root joint to the joints group.
 
-        self.initializeModuleTransform(self.jointInfo[0][1])
+        self.initializeModuleTransform(self.jointInfo[0][1])  # Initialize the module's main transform.
 
-        # Create translation controls at each joint.
-        translationControls = []
+        translationControls = []  # Create translation controls at each joint.
 
         for joint in joints:
             translationControls.append(self.createTranslationControlAtJoint(joint))
 
-        # Constrain root joint to its translation control.
-
-        rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
+        rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')  # Constrain the root joint to its translation control.
 
         utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
 
-        self.initializeHook(translationControls[0])
+        self.initializeHook(translationControls[0])  # Initialize the hook object if one was provided.
 
-        # Create stretchy segments between each joint pair.
-        for index in range(len(joints) - 1):
+        for index in range(len(joints) - 1):  # Create stretchy segments between each joint pair.
             self.setupStretchyJointSegment(connectorType = 'orientation', parentJoint = joints[index], childJoint = joints[index + 1])
 
-        self.install_custom(joints)
+        self.install_custom(joints)  # Call custom installation logic from derived classes.
 
-        # Lock the container to prevent accidental edits.
-        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
+        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)  # Lock the container to prevent accidental edits.
 
     def createTranslationControlAtJoint(self, joint):
         """
-        Creates a translation control object at the specified joint.
+        Creates a translation control object at the specified joint's position.
 
         Args:
-            joint (str): Name of the joint to attach a control to.
+            joint (str): The name of the joint to attach a control to.
 
         Returns:
-            str: The name of the created control object.
+            str: The name of the created translation control object.
         """
+        container, control = utils.createTranslationControl(name = joint)  # Create the translation control using a utility function.
 
-        container, control = utils.createTranslationControl(name = joint)
+        utils.addNodeToContainer(self.containerName, container)  # Add the control's container to the module's main container.
 
-        utils.addNodeToContainer(self.containerName, container)
+        cmds.parent(control, self.moduleTransform, absolute = True)  # Parent the control under the module's main transform.
 
-        cmds.parent(control, self.moduleTransform, absolute = True)
-
-        # Move control to match the joint's position.
-        jointPos = cmds.xform(joint, query = True, worldSpace = True, translation = True)
+        jointPos = cmds.xform(joint, query = True, worldSpace = True, translation = True)  # Move the control to match the joint's world position.
         cmds.xform(control, worldSpace = True, absolute = True, translation = jointPos)
 
-        # Publish translation attribute to container.
-        niceName = utils.stripLeadingNamespace(joint)[1]
+        niceName = utils.stripLeadingNamespace(joint)[1]  # Publish the translation attribute of the control to its container.
         attrName = f'{niceName}_T'
-
         cmds.container(container, edit = True, publishAndBind = (f'{control}.translate', attrName))
-        cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
+
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))  # Publish the control's container to the module's main container.
 
         return control
-
 
     def getTranslationControl(self, jointName):
 
@@ -388,7 +445,7 @@ class Blueprint:
 
         # Setup stretchy IK using utility function.
         ikNodes = utils.basicStretchyIK(rootJoint = parentJoint, endJoint = childJoint, container = self.containerName, lockMinimumLength = False, poleVectorObject = poleVectorLocator,
-                        scaleCorrectionAttribute = None)
+                                        scaleCorrectionAttribute = None)
 
         ikHandle = ikNodes['ikHandle']
         rootLocator = ikNodes['rootLocator']
@@ -404,10 +461,21 @@ class Blueprint:
             cmds.parent(node, self.jointsGrp, absolute = True)
             cmds.setAttr(f'{node}.visibility', 0)
 
-    def initializeModuleTransform(self, rootPos):
-        self.moduleTransform = utils.createModuleTransformControl(name = f'{self.moduleNamespace}:module_transform')
+    def initializeModuleTransform(self, position):
+        """
+        Creates and initializes the main transform for the module.
 
-        cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = rootPos)
+        This transform serves as the root for all module components and allows
+        for easy manipulation of the entire module.
+
+        Args:
+            position (list): A list of three floats [x, y, z] representing the initial
+                             world space position of the module transform.
+        """
+
+        self.moduleTransform = utils.createModuleTransformControl(name = f'{self.moduleNamespace}:module_transform')  # Create an empty group to serve as the module's main transform.
+
+        cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = position)  # Set its world space position.
 
         utils.addNodeToContainer(self.containerName, self.moduleTransform, includeHierarchyBelow = True)
 
@@ -440,7 +508,6 @@ class Blueprint:
                 - control (str): The name of the main control or geometry created.
                 - constrainedGrp (str): The name of the group constrained between the two joints.
         """
-
 
         if connectorType == 'orientation':
             container, connector = utils.createOrientationConnector(name)
@@ -515,7 +582,6 @@ class Blueprint:
 
         # Check if the joint exists before creating any UI elements
         if not cmds.objExists(joint):
-            print(f"Info: Joint '{joint}' does not exist. Skipping creation of rotateOrder control.")
             return layout  # Return an empty layout if the joint doesn't exist
 
         jointName = utils.stripAllNamespaces(joint)[1]
@@ -567,15 +633,13 @@ class Blueprint:
         cmds.namespace(setNamespace = ':')
         cmds.namespace(removeNamespace = self.moduleNamespace)
 
-
     def renameModuleInstance(self, newName):
-
 
         if newName == self.userSpecifiedName:
             return
 
         if utils.doesBlueprintUserSpecifiedNameExist(newName):
-            QtWidgets.QMessageBox.information(None, "Name Conflict",f"Name {newName} already exists.\nAborting Rename.")
+            QtWidgets.QMessageBox.information(None, "Name Conflict", f"Name {newName} already exists.\nAborting Rename.")
             return False
 
         else:
@@ -647,8 +711,3 @@ class Blueprint:
 
         cmds.container(self.containerName, edit = True, removeNode = container)
         utils.addNodeToContainer(hookContainer, container)
-
-
-
-
-

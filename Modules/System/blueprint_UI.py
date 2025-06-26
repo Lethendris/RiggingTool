@@ -1,8 +1,14 @@
+
 """
-Blueprint Module UI for Maya
-This module creates a UI for managing rigging modules with PySide2 in Maya.
-It dynamically loads module information from Python files in a specified directory.
+Base Blueprint Module for Maya Rigging
+
+This module defines the foundational `Blueprint` class, which serves as a base for creating
+rigging modules in Maya. It provides core functionalities for managing module instances,
+UI integration, and the installation process of module-specific components like joints
+and controls. Derived classes are expected to override certain methods to implement
+module-specific logic.
 """
+
 import importlib.util
 import os.path
 import sys
@@ -173,6 +179,8 @@ class RoundedIconButton(QtWidgets.QPushButton):
 
 
 class ModuleWidget(QtWidgets.QWidget):
+    install = QtCore.Signal(str, object)
+
     def __init__(self, moduleName, description, iconPath = None, moduleObject = None, parent = None):
         super().__init__(parent = parent)
 
@@ -196,30 +204,13 @@ class ModuleWidget(QtWidgets.QWidget):
         self.imageButton = RoundedIconButton(self.iconPath) # image button
         self.imageButton.setFixedSize(64, 64)
         self.imageButton.setIconSize(QtCore.QSize(64, 64))
-        # self.imageButton.setStyleSheet("""
-        #     QPushButton {
-        #         border: 1px solid #555;
-        #         border-radius: 4px;
-        #         background-color: #3498db;
-        #         color: #e0e0e0;
-        #         padding: 6px;
-        #         background-image: url("path/to/icon.png");
-        #         background-repeat: no-repeat;
-        #         background-position: center;
-        #         background-origin: content;
-        #     }
-        #     QPushButton:hover {
-        #         background-color: red;
-        #         border-color: red;
-        #     }
-        # """)
 
         if self.iconPath and os.path.exists(self.iconPath): # set icon for button if available
             icon = QtGui.QIcon(self.iconPath)
             self.imageButton.setIcon(icon)
         else:
 
-            self.imageButton.setText('Icon') # default icon
+            self.imageButton.setText("Icon") # default icon
 
 
         self.nameLabel = QtWidgets.QLabel(self.moduleName) # module name label
@@ -246,45 +237,10 @@ class ModuleWidget(QtWidgets.QWidget):
 
 
     def moduleImageButtonClicked(self):
-        self.installModule()
+        self.install.emit(self.moduleName, self.moduleObject)
 
-    def installModule(self):
-        baseName = 'instance_'
+    # @QtCore.Slot()
 
-        cmds.namespace(setNamespace = ':')
-        rawNamespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
-
-        # Strip prefix before '__' if present
-        strippedNamespaces = [ns.partition('__')[2] if '__' in ns else ns for ns in rawNamespaces]
-
-        newSuffix = utils.findHighestTrailingNumber(strippedNamespaces, baseName) + 1
-
-        userSpecifiedName = f'{baseName}{newSuffix}'
-
-
-        hookObj = self.findHookObjectFromSelection()
-
-
-        if self.moduleObject and hasattr(self.moduleObject, self.moduleName):
-            moduleClass = getattr(self.moduleObject, self.moduleName)
-            moduleInstance = moduleClass(userSpecifiedName, hookObj)
-            moduleInstance.install()
-
-            moduleTransform = f'{self.moduleName}__{userSpecifiedName}:module_transform'
-            cmds.select(moduleTransform)
-            cmds.setToolTo('moveSuperContext')
-
-    def findHookObjectFromSelection(self):
-        selectedObjects = cmds.ls(selection = True, transforms = True)
-
-        numberOfSelectedObjects = len(selectedObjects)
-
-        hookObj = None
-
-        if numberOfSelectedObjects != 0:
-            hookObj = selectedObjects[numberOfSelectedObjects - 1] # pick last selected as hookObj
-
-        return hookObj
 
 
 
@@ -322,6 +278,45 @@ class Blueprint_UI(QtWidgets.QDialog):
             self.loadedModules = utils.loadAllModulesFromDirectory(self.modulesDir)  # Load modules if directory is provided
 
             self.addModuleToUI()
+
+    def installModule(self, moduleName, moduleObject):
+
+        baseName = 'instance_'
+
+        cmds.namespace(setNamespace = ":")
+        rawNamespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
+
+        # Strip prefix before '__' if present
+        strippedNamespaces = [ns.partition('__')[2] if '__' in ns else ns for ns in rawNamespaces]
+
+        newSuffix = utils.findHighestTrailingNumber(strippedNamespaces, baseName) + 1
+
+        userSpecifiedName = f'{baseName}{newSuffix}'
+
+
+        hookObj = self.findHookObjectFromSelection()
+
+
+        if moduleObject and hasattr(moduleObject, moduleName):
+            moduleClass = getattr(moduleObject, moduleName)
+            moduleInstance = moduleClass(userSpecifiedName, hookObj)
+            moduleInstance.install()
+
+            moduleTransform = f'{moduleName}__{userSpecifiedName}:module_transform'
+            cmds.select(moduleTransform)
+            cmds.setToolTo('moveSuperContext')
+
+    def findHookObjectFromSelection(self):
+        selectedObjects = cmds.ls(selection = True, transforms = True)
+
+        numberOfSelectedObjects = len(selectedObjects)
+
+        hookObj = None
+
+        if numberOfSelectedObjects != 0:
+            hookObj = selectedObjects[numberOfSelectedObjects - 1]  # pick last selected as hookObj
+
+        return hookObj
 
 
     def showEvent(self, event):
@@ -753,14 +748,15 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         insertIndex = self.scrollLayout.count() - 1  # index before spacer
 
-        for moduleData in self.loadedModules.values():
-            moduleWidget = ModuleWidget(
-                moduleData['name'],
-                moduleData['description'],
-                moduleData['icon'],
-                moduleData['module']
-            )
-            self.scrollLayout.insertWidget(insertIndex, moduleWidget)
+        for moduleName, module_info in self.loadedModules.items():
+            description = module_info.get("description", "No description available.")
+            iconPath = module_info.get("icon", None)
+            moduleObject = module_info.get("module", None)
+            className = module_info.get("name", moduleName)  # Get the actual class name
+
+            module_widget = ModuleWidget(className, description, iconPath, moduleObject)
+            self.scrollLayout.addWidget(module_widget)
+            module_widget.install.connect(self.installModule)
 
 
     @classmethod
