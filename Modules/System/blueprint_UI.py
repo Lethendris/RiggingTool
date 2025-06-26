@@ -331,13 +331,13 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         selectedNodes = cmds.ls(selection = True)
 
-        self.buttons['Snap Root > Hook'].setEnabled(False)
-        self.buttons['Group Selected'].setEnabled(True)
-        self.buttons['Ungroup'].setEnabled(False)
-        self.buttons['Mirror Module'].setEnabled(False)
-        self.buttons['Rehook'].setEnabled(False)
-        self.buttons['Constrain Root > Hook'].setEnabled(False)
-        self.buttons['Delete'].setEnabled(False)
+        # self.buttons['Snap Root > Hook'].setEnabled(False)
+        # self.buttons['Group Selected'].setEnabled(True)
+        # self.buttons['Ungroup'].setEnabled(False)
+        # self.buttons['Mirror Module'].setEnabled(False)
+        # self.buttons['Rehook'].setEnabled(False)
+        # self.buttons['Constrain Root > Hook'].setEnabled(False)
+        # self.buttons['Delete'].setEnabled(False)
         # self.moduleInstanceLineEdit.setEnabled(False)
         # self.moduleInstanceLineEdit.setText('')
 
@@ -377,19 +377,20 @@ class Blueprint_UI(QtWidgets.QDialog):
                 moduleClass = getattr(mod, mod.CLASS_NAME)
                 self.moduleInstance = moduleClass(userSpecifiedName, None)
 
-                self.buttons['Snap Root > Hook'].setEnabled(True)
-                self.buttons['Mirror Module'].setEnabled(True)
-                self.buttons['Rehook'].setEnabled(True)
-                self.buttons['Group Selected'].setEnabled(True)
-                self.buttons['Ungroup'].setEnabled(True)
-                self.buttons['Constrain Root > Hook'].setEnabled(True)
-                self.buttons['Delete'].setEnabled(True)
-                self.moduleInstanceLineEdit.setEnabled(True)
-                self.moduleInstanceLineEdit.setText(userSpecifiedName)
+            self.buttons['Mirror Module'].setEnabled(controlEnable)
+            self.buttons['Rehook'].setEnabled(controlEnable)
+            self.buttons['Snap Root > Hook'].setEnabled(controlEnable)
+            self.buttons['Constrain Root > Hook'].setEnabled(controlEnable)
+            self.buttons['Delete'].setEnabled(controlEnable)
+            self.moduleInstanceLineEdit.setEnabled(controlEnable)
+            self.moduleInstanceLineEdit.setText(userSpecifiedName)
 
-                self.createModuleSpecificControls()
+            # self.buttons['Group Selected'].setEnabled(controlEnable)
+            # self.buttons['Ungroup'].setEnabled(controlEnable)
 
-            self.createScriptJob()
+            self.createModuleSpecificControls()
+
+        self.createScriptJob()
 
     def createModuleSpecificControls(self):
 
@@ -654,13 +655,13 @@ class Blueprint_UI(QtWidgets.QDialog):
         }
         """)
 
-        self.buttons['Snap Root > Hook'].setEnabled(False)
-        self.buttons['Mirror Module'].setEnabled(False)
-        self.buttons['Rehook'].setEnabled(False)
-        self.buttons['Ungroup'].setEnabled(False)
-        self.buttons['Group Selected'].setEnabled(True)
-        self.buttons['Constrain Root > Hook'].setEnabled(False)
-        self.buttons['Delete'].setEnabled(False)
+        # self.buttons['Snap Root > Hook'].setEnabled(False)
+        # self.buttons['Mirror Module'].setEnabled(False)
+        # self.buttons['Rehook'].setEnabled(False)
+        # self.buttons['Ungroup'].setEnabled(False)
+        # self.buttons['Group Selected'].setEnabled(True)
+        # self.buttons['Constrain Root > Hook'].setEnabled(False)
+        # self.buttons['Delete'].setEnabled(False)
 
         # ADD TO MAIN LAYOUT
         self.modulesTabLayout.addWidget(self.createHLine())
