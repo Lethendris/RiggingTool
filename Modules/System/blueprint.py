@@ -383,6 +383,7 @@ class Blueprint:
 
         cmds.setAttr(f'{poleVectorLocator}.visibility', 0)
         cmds.setAttr(f'{poleVectorLocator}.ty', -0.5)
+
         self.createConnector(connectorType = connectorType, name = parentJoint, parentJoint = parentJoint, childJoint = childJoint)
 
         # Setup stretchy IK using utility function.
@@ -641,11 +642,11 @@ class Blueprint:
             cmds.parent(node, hookGrp, absolute = True)
             cmds.setAttr(f'{node}.visibility', 0)
 
-        container, connector, constrainedGrp = self.createConnector(connectorType = 'hook', name = 'hook_connector', parentJoint = rootJoint, childJoint = targetJoint)
-        # cmds.parent(constrainedGrp, hookGrp, absolute = True)
+        container, connector, constrainedGrp = self.createConnector(connectorType = 'hook', name = rootJoint, parentJoint = rootJoint, childJoint = targetJoint)
+        cmds.parent(constrainedGrp, hookGrp, absolute = True)
 
-        # cmds.container(self.containerName, edit = True, removeNode = container)
-        # utils.addNodeToContainer(hookContainer, container)
+        cmds.container(self.containerName, edit = True, removeNode = container)
+        utils.addNodeToContainer(hookContainer, container)
 
 
 

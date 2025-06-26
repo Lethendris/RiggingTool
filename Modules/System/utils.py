@@ -448,7 +448,7 @@ def createHookConnector(name):
 
     cmds.move(0.5, 0, 0, f'{cylinder}.cv[0:3][0:7]', relative = True)
 
-    material, materialInfo = assignMaterial(cylinder, color = (0.2, 0.5, 0.5), diffuse = 0.2)
+    material, materialInfo = assignMaterial(cylinder, color = (0.5, 0.8, 0.8), diffuse = 0.2)
 
     connector = cmds.rename(cylinder, f'{name}_hook_connector', ignoreShape = True)
 
