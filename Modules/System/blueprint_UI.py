@@ -350,19 +350,9 @@ class Blueprint_UI(QtWidgets.QDialog):
     def deleteScriptJob(self):
         cmds.scriptJob(kill = self.jobNum, force = True)
 
-    def modifySelected(self, *args):
+    def modifySelected(self):
 
         selectedNodes = cmds.ls(selection = True)
-
-        # self.buttons['Snap Root > Hook'].setEnabled(False)
-        # self.buttons['Group Selected'].setEnabled(True)
-        # self.buttons['Ungroup'].setEnabled(False)
-        # self.buttons['Mirror Module'].setEnabled(False)
-        # self.buttons['Rehook'].setEnabled(False)
-        # self.buttons['Constrain Root > Hook'].setEnabled(False)
-        # self.buttons['Delete'].setEnabled(False)
-        # self.moduleInstanceLineEdit.setEnabled(False)
-        # self.moduleInstanceLineEdit.setText('')
 
         if len(selectedNodes) <= 1:
             self.moduleInstance = None
@@ -389,6 +379,8 @@ class Blueprint_UI(QtWidgets.QDialog):
 
             controlEnable = False
             userSpecifiedName = ''
+            constrainCommand = self.constrainRookToHook
+            constrainLabel = 'Constrain Root > Hook'
 
             if selectedModuleNamespace is not None:
                 controlEnable = True
@@ -400,16 +392,26 @@ class Blueprint_UI(QtWidgets.QDialog):
                 moduleClass = getattr(mod, mod.CLASS_NAME)
                 self.moduleInstance = moduleClass(userSpecifiedName, None)
 
+                if self.moduleInstance.isRootConstrained():
+                    constrainCommand = self.unconstrainRookFromHook
+                    constrainLabel = 'Unconstrain Root'
+
             self.buttons['Mirror Module'].setEnabled(controlEnable)
             self.buttons['Rehook'].setEnabled(controlEnable)
             self.buttons['Snap Root > Hook'].setEnabled(controlEnable)
             self.buttons['Constrain Root > Hook'].setEnabled(controlEnable)
+            self.buttons['Constrain Root > Hook'].setText(constrainLabel)
+
+            # try:
+            #     self.buttons['Constrain Root > Hook'].clicked.disconnect()
+            # except:
+            #     pass
+
+            self.buttons['Constrain Root > Hook'].clicked.connect(constrainCommand)
+
             self.buttons['Delete'].setEnabled(controlEnable)
             self.moduleInstanceLineEdit.setEnabled(controlEnable)
             self.moduleInstanceLineEdit.setText(userSpecifiedName)
-
-            # self.buttons['Group Selected'].setEnabled(controlEnable)
-            # self.buttons['Ungroup'].setEnabled(controlEnable)
 
             self.createModuleSpecificControls()
 
@@ -701,6 +703,35 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Delete'].clicked.connect(self.deleteModule)
         self.moduleInstanceLineEdit.editingFinished.connect(self.renameModule)
         self.buttons['Rehook'].clicked.connect(self.rehookModuleSetup)
+        self.buttons['Snap Root > Hook'].clicked.connect(self.snapRootToHook)
+        self.buttons['Constrain Root > Hook'].clicked.connect(self.constrainRookToHook)
+
+    def snapRootToHook(self):
+        self.moduleInstance.snapRootToHook()
+
+    def constrainRookToHook(self):
+        self.moduleInstance.constrainRootToHook()
+
+        self.buttons['Constrain Root > Hook'].setText('Unconstrain Root')
+
+        try:
+            self.buttons['Constrain Root > Hook'].clicked.disconnect()
+        except:
+            pass
+
+        self.buttons['Constrain Root > Hook'].clicked.connect(self.unconstrainRookFromHook)
+
+    def unconstrainRookFromHook(self):
+        self.moduleInstance.unconstrainRootFromHook()
+
+        self.buttons['Constrain Root > Hook'].setText('Constraint Root > Hook')
+
+        try:
+            self.buttons['Constrain Root > Hook'].clicked.disconnect()
+        except:
+            pass
+
+        self.buttons['Constrain Root > Hook'].clicked.connect(self.constrainRookToHook)
 
     def lockClicked(self):
         reply = QtWidgets.QMessageBox.question(self, "Lock Blueprints?",

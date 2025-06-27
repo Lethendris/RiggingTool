@@ -639,6 +639,35 @@ class Blueprint:
     def delete(self):
 
         cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
+
+        blueprintsFolder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Blueprint')
+
+        validModules = [module for module in utils.loadAllModulesFromDirectory(blueprintsFolder).keys()]
+        validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(blueprintsFolder).values()]
+
+        hookedModules = set()
+
+        for jointInfo in self.jointInfo:
+            joint = jointInfo[0]
+            translationControl = self.getTranslationControl(f'{self.moduleNamespace}:{joint}')
+
+            connections = cmds.listConnections(translationControl)
+
+            for connection in connections:
+                moduleInstance = utils.stripLeadingNamespace(connection)
+
+                if moduleInstance:
+                    moduleName, split, userSpecifiedName = moduleInstance[0].partition('__')
+                    if moduleInstance[0] != self.moduleNamespace and moduleName in validModuleNames:
+                        index = validModuleNames.index(moduleName)
+                        hookedModules.add((validModules[index], userSpecifiedName))
+
+        for module in hookedModules:
+            mod = importlib.import_module(f'Blueprint.{module[0]}')
+            moduleClass = getattr(mod, mod.CLASS_NAME)
+            moduleInstance = moduleClass(module[1], None)
+            moduleInstance.rehook(None)
+
         cmds.delete(self.containerName)
 
         cmds.namespace(setNamespace = ':')
@@ -738,6 +767,8 @@ class Blueprint:
         if self.hookObject == oldHookObject:
             return
 
+        self.unconstrainRootFromHook()
+
         cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
 
         hookConstraint = f'{self.moduleNamespace}:hook_pointConstraint'
@@ -764,3 +795,57 @@ class Blueprint:
             self.rehook(None)
 
         return hookObject
+
+    def snapRootToHook(self):
+        rootControl = self.getTranslationControl(f'{self.moduleNamespace}:{self.jointInfo[0][0]}')
+        hookObject = self.findHookObject()
+
+        if hookObject == f'{self.moduleNamespace}:unhookedTarget':
+            return
+
+        hookObjectPos = cmds.xform(hookObject, query = True, worldSpace = True, translation = True)
+        cmds.xform(rootControl, worldSpace = True, absolute = True, translation = hookObjectPos)
+
+    def constrainRootToHook(self):
+        rootControl = self.getTranslationControl(f'{self.moduleNamespace}:{self.jointInfo[0][0]}')
+        hookObject = self.findHookObject()
+
+        if hookObject == f'{self.moduleNamespace}:unhookedTarget':
+            return
+
+        cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
+
+        cmds.pointConstraint(hookObject, rootControl, maintainOffset = False, name = f'{rootControl}_hookConstraint')
+        cmds.setAttr(f'{rootControl}.translate', lock = True)
+        cmds.setAttr(f'{rootControl}.visibility', lock = False)
+        cmds.setAttr(f'{rootControl}.visibility', 0)
+        cmds.setAttr(f'{rootControl}.visibility', lock = True)
+
+        cmds.select(clear = True)
+
+        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
+
+    def unconstrainRootFromHook(self):
+        cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
+
+        rootControl = self.getTranslationControl(f'{self.moduleNamespace}:{self.jointInfo[0][0]}')
+        rootControl_hookConstraint = f'{rootControl}_hookConstraint'
+
+        if cmds.objExists(rootControl_hookConstraint):
+            cmds.delete(rootControl_hookConstraint)
+            cmds.setAttr(f'{rootControl}.translate', lock = False)
+            cmds.setAttr(f'{rootControl}.visibility', lock = False)
+            cmds.setAttr(f'{rootControl}.visibility', 1)
+            cmds.setAttr(f'{rootControl}.visibility', lock = True)
+
+            cmds.select(rootControl, replace = True)
+            cmds.setToolTo('moveSuperContext')
+
+
+        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
+
+    def isRootConstrained(self):
+        rootControl = self.getTranslationControl(f'{self.moduleNamespace}:{self.jointInfo[0][0]}')
+        rootControl_hookConstraint = f'{rootControl}_hookConstraint'
+
+        return cmds.objExists(rootControl_hookConstraint)
