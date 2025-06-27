@@ -746,6 +746,10 @@ class Blueprint_UI(QtWidgets.QDialog):
             for module in moduleInstances:
                 module[0].lockPhase2(module[1])
 
+            for module in moduleInstances:
+                hookObject = module[1][4]
+                module[0].lockPhase3(hookObject)
+
     def addModuleToUI(self):
         """
         Adds all loaded modules to the UI by creating a ModuleWidget for each

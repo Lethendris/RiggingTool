@@ -152,7 +152,7 @@ class Blueprint:
         if jointPreferredAngles is not None:
             numPreferredAngles = len(jointPreferredAngles)
 
-        # hook object = moduleInfo[4] (not directly used in this method, but part of moduleInfo)
+        hookObject = moduleInfo[4]
 
         rootTransform = moduleInfo[5]
 
@@ -226,6 +226,10 @@ class Blueprint:
             cmds.setAttr(f'{renamedNode}.visibility', 0)
 
         cmds.addAttr(blueprintGrp, attributeType = 'bool', defaultValue = 0, longName = 'controlModulesInstalled', keyable = False)  # Add a custom attribute to the blueprint group for installed modules.
+
+        hookGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:HOOK_IN')
+        for obj in [blueprintGrp, creationPoseGrp]:
+            cmds.parent(obj, hookGrp, absolute = True)
 
         settingsLocator = cmds.spaceLocator(name = f'{self.moduleNamespace}:SETTINGS')[0]
         cmds.setAttr(f'{settingsLocator}.visibility', 0)
@@ -303,23 +307,33 @@ class Blueprint:
         blueprintContainer = utils.createContainer(name = f'{self.moduleNamespace}:blueprint_container', nodesIn = blueprintNodes, includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True)
 
         moduleGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:module_grp')  # Create a main group for the module.
-        cmds.parent(settingsLocator, moduleGrp, absolute = True)  # Parent blueprint and creation pose groups under the main module group.
-
-        # TEMP
-        for group in [blueprintGrp, creationPoseGrp]:
-            cmds.parent(group, moduleGrp, absolute = True)
-        # END TEMP
+        for obj in [hookGrp, settingsLocator]:
+            cmds.parent(obj, moduleGrp, absolute = True)
 
         # Create the main module container and add relevant nodes.
-        moduleContainer = utils.createContainer(name = f'{self.moduleNamespace}:module_container', nodesIn = [moduleGrp, settingsLocator, blueprintContainer], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
-                                                includeShapes = True)
+        moduleContainer = utils.createContainer(name = f'{self.moduleNamespace}:module_container', nodesIn = [moduleGrp, settingsLocator, hookGrp, blueprintContainer], includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True)
 
         cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.activeModule', 'activeModule'))  # Publish attributes from the settings locator to the module container.
         cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.creationPoseWeight', 'creationPoseWeight'))
 
-        # TEMP
-        cmds.lockNode(moduleContainer, lock = True, lockUnpublished = True)  # Lock the module container to prevent accidental edits.
-        # END TEMP
+        cmds.select(moduleGrp)
+        cmds.addAttr(attributeType = 'float', longName = 'hierarchicalScale')
+        cmds.connectAttr(f'{hookGrp}.scaleY', f'{moduleGrp}.hierarchicalScale')
+
+    def lockPhase3(self, hookObject):
+        if hookObject:
+            hookObjectModuleNode = utils.stripLeadingNamespace(hookObject)
+            hookObjectModule = hookObjectModuleNode[0]
+            hookObjectJoint = hookObjectModuleNode[1].split('_translation_control')[0]
+
+            hookObject = f'{hookObjectModule}:blueprint_{hookObjectJoint}'
+
+            parentConstraint = cmds.parentConstraint(hookObject, f'{self.moduleNamespace}:HOOK_IN', maintainOffset = True, name = f'{self.moduleNamespace}:hook_parentConstraint')[0]
+            scaleConstraint = cmds.scaleConstraint(hookObject, f'{self.moduleNamespace}:HOOK_IN', maintainOffset = True, name = f'{self.moduleNamespace}:hook_scaleConstraint')[0]
+
+            utils.addNodeToContainer(self.containerName, [parentConstraint, scaleConstraint])
+
+        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
 
     # BASE CLASS METHODS
     def install(self):
@@ -740,3 +754,13 @@ class Blueprint:
         sourceNode = str(sourceAttr).rpartition('.')[0]
 
         return sourceNode
+
+    def findHookObjectForLock(self):
+        hookObject = self.findHookObject()
+
+        if hookObject == f'{self.moduleNamespace}:unhookedTarget':
+            hookObject = None
+        else:
+            self.rehook(None)
+
+        return hookObject
