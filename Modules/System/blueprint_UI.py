@@ -705,6 +705,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Rehook'].clicked.connect(self.rehookModuleSetup)
         self.buttons['Snap Root > Hook'].clicked.connect(self.snapRootToHook)
         self.buttons['Constrain Root > Hook'].clicked.connect(self.constrainRookToHook)
+        self.buttons['Group Selected'].clicked.connect(self.groupSelected)
 
     def snapRootToHook(self):
         self.moduleInstance.snapRootToHook()
@@ -780,6 +781,11 @@ class Blueprint_UI(QtWidgets.QDialog):
             for module in moduleInstances:
                 hookObject = module[1][4]
                 module[0].lockPhase3(hookObject)
+
+    def groupSelected(self):
+        import System.groupSelected as groupSelected
+        importlib.reload(groupSelected)
+        groupSelected.GroupSelectedDialog.showUI(self)
 
     def addModuleToUI(self):
         """
