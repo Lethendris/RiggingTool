@@ -238,7 +238,7 @@ class ModuleWidget(QtWidgets.QWidget):
 
 
 class Blueprint_UI(QtWidgets.QDialog):
-    ui_instance = None
+    _instance = None
 
     def __init__(self, modulesDir = None, parent = None):
         self.jobNum = None
@@ -807,24 +807,37 @@ class Blueprint_UI(QtWidgets.QDialog):
 
     @classmethod
     def showUI(cls, modulesDir = None):
-        """Show the Blueprint Module UI
+        if cls._instance and cls._instance.isVisible():
+            cls._instance.raise_()
+            cls._instance.activateWindow()
+            return
 
-        Args:
-            modulesDir (str, optional): Directory containing module Python files.
+        if cls._instance:
+            cls._instance.deleteLater()
 
-        Returns:
-            Blueprint_UI: The UI instance.
-        """
+        cls._instance = cls(modulesDir = modulesDir)
+        cls._instance.exec_()
 
-        if not cls.ui_instance:
-            cls.ui_instance = Blueprint_UI(modulesDir)
-
-        if cls.ui_instance.isHidden():
-            cls.ui_instance.show()
-
-        else:
-            cls.ui_instance.raise_()
-            cls.ui_instance.activateWindow()
+    # @classmethod
+    # def showUI(cls, modulesDir = None):
+    #     """Show the Blueprint Module UI
+    #
+    #     Args:
+    #         modulesDir (str, optional): Directory containing module Python files.
+    #
+    #     Returns:
+    #         Blueprint_UI: The UI instance.
+    #     """
+    #
+    #     if not cls.ui_instance:
+    #         cls.ui_instance = Blueprint_UI(modulesDir)
+    #
+    #     if cls.ui_instance.isHidden():
+    #         cls.ui_instance.show()
+    #
+    #     else:
+    #         cls.ui_instance.raise_()
+    #         cls.ui_instance.activateWindow()
 
     def renameModule(self):
         newName = self.moduleInstanceLineEdit.text()

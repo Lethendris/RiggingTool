@@ -30,59 +30,47 @@ class GroupSelectedDialog(QtWidgets.QDialog):
 
     def setupUI(self):
         mainLayout = QtWidgets.QVBoxLayout(self)
+        mainLayout.setSpacing(10)
 
         nameLayout = QtWidgets.QHBoxLayout()
+        nameLayout.setSpacing(4)
         positionLayout = QtWidgets.QHBoxLayout()
+        positionLayout.setSpacing(4)
         buttonLayout = QtWidgets.QHBoxLayout()
+        buttonLayout.setSpacing(4)
 
         self.groupNameLabel = QtWidgets.QLabel('Group Name:')
-        self.groupTextEdit = QtWidgets.QTextEdit()
+        self.groupNameLabel.setMinimumWidth(80)
 
-        self.positionLabel = QtWidgets.QLabel('Position At')
-        self.positionLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.groupLineEdit = QtWidgets.QLineEdit()
+        self.groupLineEdit.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
+        self.positionLabel = QtWidgets.QLabel('Position At:')
+        self.positionLabel.setMinimumWidth(80)
 
         self.lastSelectedButton = QtWidgets.QPushButton('Last Selected')
+        self.lastSelectedButton.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.averagePositionButton = QtWidgets.QPushButton('Average Position')
+        self.averagePositionButton.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
+        self.acceptButton = QtWidgets.QPushButton('Accept')
+        self.cancelButton = QtWidgets.QPushButton('Cancel')
 
         nameLayout.addWidget(self.groupNameLabel)
-        nameLayout.addWidget(self.groupTextEdit)
+        nameLayout.addWidget(self.groupLineEdit)
+
         positionLayout.addWidget(self.positionLabel)
-        buttonLayout.addWidget(self.lastSelectedButton)
-        buttonLayout.addWidget(self.averagePositionButton)
+        positionLayout.addWidget(self.lastSelectedButton)
+        positionLayout.addWidget(self.averagePositionButton)
+
+        buttonLayout.addWidget(self.acceptButton)
+        buttonLayout.addWidget(self.cancelButton)
 
         mainLayout.addLayout(nameLayout)
         mainLayout.addLayout(positionLayout)
+        mainLayout.addStretch()
         mainLayout.addLayout(buttonLayout)
 
-
-
-
-        # # Group Name Input
-        # groupNameLayout = QtWidgets.QHBoxLayout()
-        # groupNameLabel = QtWidgets.QLabel("Group Name:")
-        # self.groupNameLineEdit = QtWidgets.QLineEdit("NewGroup")  # Default name
-        # groupNameLayout.addWidget(groupNameLabel)
-        # groupNameLayout.addWidget(self.groupNameLineEdit)
-        # mainLayout.addLayout(groupNameLayout)
-        #
-        # # List of Objects to Group
-        # objectsLabel = QtWidgets.QLabel("Objects to Group:")
-        # mainLayout.addWidget(objectsLabel)
-        # self.objectsListWidget = QtWidgets.QListWidget()
-        # self.objectsListWidget.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)  # Not selectable
-        # self.objectsListWidget.setMinimumHeight(100)
-        # mainLayout.addWidget(self.objectsListWidget)
-        #
-        # # Buttons
-        # buttonLayout = QtWidgets.QHBoxLayout()
-        # self.groupButton = QtWidgets.QPushButton("Group")
-        # self.cancelButton = QtWidgets.QPushButton("Cancel")
-        # buttonLayout.addStretch()  # Push buttons to the right
-        # buttonLayout.addWidget(self.groupButton)
-        # buttonLayout.addWidget(self.cancelButton)
-        # mainLayout.addLayout(buttonLayout)
-
-        # Connections
 
     @classmethod
     def showUI(cls, parent = None):
