@@ -285,7 +285,10 @@ def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includ
     # nodes.extend(conversionNodes)
     cmds.container(container, edit = True, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShapes = includeShapes, includeShaders = True, force = force)
 
-def createContainer(name, nodesIn, includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True, force = True):
+def createContainer(name, nodesIn = None, includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True, force = True):
+    if nodesIn is None:
+        nodesIn = []
+
     if isinstance(nodesIn, list):
         nodes = list(nodesIn)
 

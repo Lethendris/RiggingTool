@@ -238,12 +238,14 @@ class ModuleWidget(QtWidgets.QWidget):
 
 
 class Blueprint_UI(QtWidgets.QDialog):
-    _instance = None
+    ui_instance = None
 
     def __init__(self, modulesDir = None, parent = None):
         self.jobNum = None
 
         self.moduleInstance = None
+
+
 
         if parent is None:
             try:
@@ -262,6 +264,8 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         # SETUP UI
         self.setupUI()
+
+        self.modifySelected()
 
         # LOAD MODULES
 
@@ -398,14 +402,10 @@ class Blueprint_UI(QtWidgets.QDialog):
 
             self.buttons['Mirror Module'].setEnabled(controlEnable)
             self.buttons['Rehook'].setEnabled(controlEnable)
+            self.buttons['Group Selected'].setEnabled(controlEnable)
             self.buttons['Snap Root > Hook'].setEnabled(controlEnable)
             self.buttons['Constrain Root > Hook'].setEnabled(controlEnable)
             self.buttons['Constrain Root > Hook'].setText(constrainLabel)
-
-            # try:
-            #     self.buttons['Constrain Root > Hook'].clicked.disconnect()
-            # except:
-            #     pass
 
             self.buttons['Constrain Root > Hook'].clicked.connect(constrainCommand)
 
@@ -807,37 +807,24 @@ class Blueprint_UI(QtWidgets.QDialog):
 
     @classmethod
     def showUI(cls, modulesDir = None):
-        if cls._instance and cls._instance.isVisible():
-            cls._instance.raise_()
-            cls._instance.activateWindow()
-            return
+        """Show the Blueprint Module UI
 
-        if cls._instance:
-            cls._instance.deleteLater()
+        Args:
+            modulesDir (str, optional): Directory containing module Python files.
 
-        cls._instance = cls(modulesDir = modulesDir)
-        cls._instance.exec_()
+        Returns:
+            Blueprint_UI: The UI instance.
+        """
 
-    # @classmethod
-    # def showUI(cls, modulesDir = None):
-    #     """Show the Blueprint Module UI
-    #
-    #     Args:
-    #         modulesDir (str, optional): Directory containing module Python files.
-    #
-    #     Returns:
-    #         Blueprint_UI: The UI instance.
-    #     """
-    #
-    #     if not cls.ui_instance:
-    #         cls.ui_instance = Blueprint_UI(modulesDir)
-    #
-    #     if cls.ui_instance.isHidden():
-    #         cls.ui_instance.show()
-    #
-    #     else:
-    #         cls.ui_instance.raise_()
-    #         cls.ui_instance.activateWindow()
+        if not cls.ui_instance:
+            cls.ui_instance = Blueprint_UI(modulesDir)
+
+        if cls.ui_instance.isHidden():
+            cls.ui_instance.show()
+
+        else:
+            cls.ui_instance.raise_()
+            cls.ui_instance.activateWindow()
 
     def renameModule(self):
         newName = self.moduleInstanceLineEdit.text()

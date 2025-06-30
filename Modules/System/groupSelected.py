@@ -1,7 +1,9 @@
 # System/groupSelected.py
 import maya.cmds as cmds
 from PySide6 import QtWidgets, QtCore, QtGui
-
+import System.utils as utils
+import importlib
+importlib.reload(utils)
 
 class GroupSelectedDialog(QtWidgets.QDialog):
     """
@@ -16,17 +18,17 @@ class GroupSelectedDialog(QtWidgets.QDialog):
         self.setObjectName("GroupSelectedDialog")
         self.setFixedSize(300, 150)
 
-        # --- IMPORTANT: Set the window modality here ---
-        # QtCore.Qt.WindowModal: Blocks input to the parent window.
-        # This is generally preferred for dialogs within a host application like Maya.
-        self.setWindowModality(QtCore.Qt.WindowModal)
-
-        # --- REMOVE THIS LINE: It makes the window stay on top of ALL applications ---
-        # self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
-
         self.objectsToGroup = []  # Initialize the list of objects to be grouped
 
         self.setupUI()
+
+        self.findSelectionToGroup()
+        self.createTemporaryGroupRepresentation()
+        self.createAtLastSelected()
+
+        cmds.select(self.tempGroupTransform)
+        cmds.setToolTo('moveSuperContext')
+
 
     def setupUI(self):
         mainLayout = QtWidgets.QVBoxLayout(self)
@@ -42,7 +44,7 @@ class GroupSelectedDialog(QtWidgets.QDialog):
         self.groupNameLabel = QtWidgets.QLabel('Group Name:')
         self.groupNameLabel.setMinimumWidth(80)
 
-        self.groupLineEdit = QtWidgets.QLineEdit()
+        self.groupLineEdit = QtWidgets.QLineEdit('group')
         self.groupLineEdit.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
 
         self.positionLabel = QtWidgets.QLabel('Position At:')
@@ -71,18 +73,140 @@ class GroupSelectedDialog(QtWidgets.QDialog):
         mainLayout.addStretch()
         mainLayout.addLayout(buttonLayout)
 
+        self.acceptButton.clicked.connect(self.accept)
+        self.cancelButton.clicked.connect(self.reject)
+
+        self.lastSelectedButton.clicked.connect(self.createAtLastSelected)
+        self.averagePositionButton.clicked.connect(self.createAtAveragePosition)
+
+    def reject(self):
+        super().reject()
+
+        cmds.delete(self.tempGroupTransform)
+
+    def accept(self):
+
+
+        groupName = self.groupLineEdit.text()
+        if self.createGroup(groupName):
+            super().accept()
+
+
+    def createGroup(self, groupName):
+
+        fullGroupName = f'Group__{groupName}'
+
+        if cmds.objExists(fullGroupName):
+            QtWidgets.QMessageBox.question(self, "Name Conflict", f"Group {groupName} already exists.",QtWidgets.QMessageBox.StandardButton.Ok | QtWidgets.QMessageBox.StandardButton.Cancel)
+            return None
+
+        groupTransform = cmds.rename(self.tempGroupTransform, fullGroupName)
+        groupContainer = 'Group_container'
+
+        if not cmds.objExists(groupContainer):
+            utils.createContainer(name = groupContainer)
+
+        containers = [groupContainer]
+
+        for obj in self.objectsToGroup:
+            if obj.startswith('Group__'):
+                continue
+
+            objNamespace = utils.stripLeadingNamespace(obj)[0]
+            containers.append(f'{objNamespace}:module_container')
+
+        for c in containers:
+            cmds.lockNode(c, lock = False, lockUnpublished = False)
+
+        if self.objectsToGroup:
+            tempGroup = cmds.group(self.objectsToGroup, absolute = True)
+
+            groupParent = cmds.listRelatives(tempGroup, parent = True)
+
+            if groupParent:
+                cmds.parent(groupTransform, groupParent[0], absolute = True)
+
+            cmds.parent(self.objectsToGroup, groupTransform, absolute = True)
+
+            cmds.delete(tempGroup)
+
+        self.addGroupToContainer(groupTransform)
+
+        for c in containers:
+            cmds.lockNode(c, lock = True, lockUnpublished = True)
+
+        cmds.setToolTo('moveSuperContext')
+        cmds.select(groupTransform, replace = True)
+
+        return groupTransform
+
+    def addGroupToContainer(self, group):
+        groupContainer = 'Group_container'
+        utils.addNodeToContainer(container = groupContainer, nodesIn = [group])
+
+        groupName = group.partition('Group__')[2]
+
+        cmds.container(groupContainer, edit = True, publishAndBind = (f'{group}.translate', f'{groupName}_t'))
+        cmds.container(groupContainer, edit = True, publishAndBind = (f'{group}.rotate', f'{groupName}_r'))
+        cmds.container(groupContainer, edit = True, publishAndBind = (f'{group}.globalScale', f'{groupName}_globalScale'))
+
+    def findSelectionToGroup(self):
+        selectedObjects = cmds.ls(selection = True, transforms = True)
+
+        self.objectsToGroup = []
+
+        for obj in selectedObjects:
+            if obj.endswith('module_transform') or obj.startswith('Group__'):
+                self.objectsToGroup.append(obj)
+
+    def createTemporaryGroupRepresentation(self):
+        self.tempGroupTransform = utils.createModuleTransformControl('Group__tempGroupTransform__')
+
+        cmds.connectAttr(f'{self.tempGroupTransform}.scaleY', f'{self.tempGroupTransform}.scaleX')
+        cmds.connectAttr(f'{self.tempGroupTransform}.scaleY', f'{self.tempGroupTransform}.scaleZ')
+
+        for attr in ['scaleX', 'scaleZ', 'visibility']:
+            cmds.setAttr(f'{self.tempGroupTransform}.{attr}', lock = True, keyable = False)
+
+        cmds.aliasAttr('globalScale', f'{self.tempGroupTransform}.scaleY')
+
+    def createAtLastSelected(self):
+        controlPos = cmds.xform(f'{self.objectsToGroup[len(self.objectsToGroup) - 1]}', query = True, worldSpace = True, translation = True)
+        cmds.xform(self.tempGroupTransform, worldSpace = True, absolute = True, translation = controlPos)
+
+    def createAtAveragePosition(self):
+        controlPos = [0.0, 0.0, 0.0]
+
+        for obj in self.objectsToGroup:
+            objPos = cmds.xform(obj, query = True, worldSpace = True, translation = True)
+            controlPos[0] += objPos[0]
+            controlPos[1] += objPos[1]
+            controlPos[2] += objPos[2]
+
+        numberOfObjects = len(self.objectsToGroup)
+
+        controlPos[0] /= numberOfObjects
+        controlPos[1] /= numberOfObjects
+        controlPos[2] /= numberOfObjects
+
+        cmds.xform(self.tempGroupTransform, worldSpace = True, absolute = True, translation = controlPos)
 
     @classmethod
     def showUI(cls, parent = None):
         if cls._instance and cls._instance.isVisible():
             cls._instance.raise_()
             cls._instance.activateWindow()
-            cls._instance.findSelectionToGroup()
             return
 
         if cls._instance:
             cls._instance.deleteLater()
 
         cls._instance = cls(parent = parent)
-        cls._instance.exec_()
+
+        if not cls._instance.objectsToGroup:
+            return
+
+        cls._instance.show()
+
+
 
