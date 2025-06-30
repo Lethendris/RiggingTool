@@ -486,10 +486,25 @@ def createModuleTransformControl(name):
     cmds.move(0, -1.5, 0, f'{cubeZShape}.f[1]', relative = True)
     cmds.move(0, 1.5, 0, f'{cubeZShape}.f[3]', relative = True)
 
-    cmds.parent(cubeXShape, cubeYShape, cubeZShape, control, shape = True, relative = True, noConnections = True)
-    cmds.delete(cubeX, cubeY, cubeZ)
+    combined = cmds.polyUnite(control, cubeX, cubeY, cubeZ, ch = False, mergeUVSets = True)
+    control = cmds.rename(combined, name)
+    # cmds.parent(cubeXShape, cubeYShape, cubeZShape, control, shape = True, relative = True, noConnections = True)
+    # cmds.delete(cubeX, cubeY, cubeZ)
 
-    for shape in cmds.listRelatives(name, shapes = True, fullPath = True):
+    # for shape in cmds.listRelatives(name, shapes = True, fullPath = True):
+    #     cmds.setAttr(f'{shape}.overrideEnabled', 1)
+    #     cmds.setAttr(f'{shape}.overrideShading', 0)
+
+    shapes = cmds.listRelatives(control, shapes = True, fullPath = True) or []
+    for shape in shapes:
+        # Clean up unused groupId connections
+        connections = cmds.listConnections(shape, type = "groupId") or []
+        for conn in connections:
+            try:
+                cmds.delete(conn)
+            except:
+                pass
+
         cmds.setAttr(f'{shape}.overrideEnabled', 1)
         cmds.setAttr(f'{shape}.overrideShading', 0)
 

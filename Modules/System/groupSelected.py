@@ -208,5 +208,69 @@ class GroupSelectedDialog(QtWidgets.QDialog):
 
         cls._instance.show()
 
+class UngroupSelected:
+    def __init__(self):
+        selectedObjects = cmds.ls(selection = True, transforms = True)
+
+        filteredGroups = [obj for obj in selectedObjects if obj.startswith('Group__')]
+
+        if not filteredGroups:
+            return
+
+        groupContainer = 'Group_container'
+
+        modules = []
+        for group in filteredGroups:
+            modules.extend(self.findChildModules(group))
+
+        moduleContainers = [groupContainer]
+
+        for module in modules:
+            moduleContainer = f'{module}:module_container'
+            moduleContainers.append(moduleContainer)
+
+        for container in moduleContainers:
+            cmds.lockNode(container, lock = False, lockUnpublished = False)
+
+        for group in filteredGroups:
+            numChildren = len(cmds.listRelatives(group, children = True))
+            if numChildren > 1:
+                cmds.ungroup(group, absolute = True)
+
+            for attr in ['t', 'r', 'globalScale']:
+                cmds.container(groupContainer, edit = True, unbindAndUnpublish = f'{group}.{attr}')
+
+            parentGroup = cmds.listRelatives(group, parent = True)
+
+            cmds.delete(group)
+            cmds.delete(groupContainer)
+
+            if parentGroup:
+                parentGroup = parentGroup[0]
+                children = cmds.listRelatives(parentGroup, children = True)
+                children = cmds.ls(children, transforms = True)
+
+                if len(children) == 0:
+                    cmds.select(parentGroup, replace = True)
+                    UngroupSelected()
+
+        for container in moduleContainers:
+            if cmds.objExists(container):
+                cmds.lockNode(container, lock = True, lockUnpublished = True)
+
+    def findChildModules(self, group):
+        modules = []
+        children = cmds.listRelatives(group, children = True)
+
+        if children:
+            for child in children:
+                moduleNamespaceInfo = utils.stripLeadingNamespace(child)
+                if moduleNamespaceInfo:
+                    modules.append(moduleNamespaceInfo[0])
+
+                elif 'Group__' in child:
+                    modules.extend(self.findChildModules(child))
+
+        return modules
 
 

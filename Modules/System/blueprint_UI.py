@@ -363,8 +363,13 @@ class Blueprint_UI(QtWidgets.QDialog):
             selectedModuleNamespace = None
             currentModuleFile = None
 
+            self.buttons['Ungroup'].setEnabled(False)
+
             if len(selectedNodes) == 1:
                 lastSelected = selectedNodes[0]
+
+                if lastSelected.startswith('Group__'):
+                    self.buttons['Ungroup'].setEnabled(True)
 
                 namespaceAndNode = utils.stripLeadingNamespace(lastSelected)
 
@@ -402,7 +407,7 @@ class Blueprint_UI(QtWidgets.QDialog):
 
             self.buttons['Mirror Module'].setEnabled(controlEnable)
             self.buttons['Rehook'].setEnabled(controlEnable)
-            self.buttons['Group Selected'].setEnabled(controlEnable)
+            # self.buttons['Group Selected'].setEnabled(controlEnable)
             self.buttons['Snap Root > Hook'].setEnabled(controlEnable)
             self.buttons['Constrain Root > Hook'].setEnabled(controlEnable)
             self.buttons['Constrain Root > Hook'].setText(constrainLabel)
@@ -706,6 +711,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Snap Root > Hook'].clicked.connect(self.snapRootToHook)
         self.buttons['Constrain Root > Hook'].clicked.connect(self.constrainRookToHook)
         self.buttons['Group Selected'].clicked.connect(self.groupSelected)
+        self.buttons['Ungroup'].clicked.connect(self.ungroupSelected)
 
     def snapRootToHook(self):
         self.moduleInstance.snapRootToHook()
@@ -786,6 +792,11 @@ class Blueprint_UI(QtWidgets.QDialog):
         import System.groupSelected as groupSelected
         importlib.reload(groupSelected)
         groupSelected.GroupSelectedDialog.showUI(self)
+
+    def ungroupSelected(self):
+        import System.groupSelected as groupSelected
+        importlib.reload(groupSelected)
+        groupSelected.UngroupSelected()
 
     def addModuleToUI(self):
         """
