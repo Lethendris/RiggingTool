@@ -784,6 +784,12 @@ class Blueprint_UI(QtWidgets.QDialog):
             for module in moduleInstances:
                 module[0].lockPhase2(module[1])
 
+            groupContainer = 'Group_container'
+            if cmds.objExists(groupContainer):
+                cmds.lockNode(groupContainer, lock = False, lockUnpublished = False)
+                cmds.delete(groupContainer)
+
+
             for module in moduleInstances:
                 hookObject = module[1][4]
                 module[0].lockPhase3(hookObject)

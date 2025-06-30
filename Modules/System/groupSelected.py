@@ -243,7 +243,7 @@ class UngroupSelected:
             parentGroup = cmds.listRelatives(group, parent = True)
 
             cmds.delete(group)
-            cmds.delete(groupContainer)
+
 
             if parentGroup:
                 parentGroup = parentGroup[0]
@@ -253,6 +253,9 @@ class UngroupSelected:
                 if len(children) == 0:
                     cmds.select(parentGroup, replace = True)
                     UngroupSelected()
+
+        if cmds.objExists(groupContainer):
+            cmds.delete(groupContainer)
 
         for container in moduleContainers:
             if cmds.objExists(container):
