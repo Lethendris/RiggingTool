@@ -86,7 +86,6 @@ class GroupSelectedDialog(QtWidgets.QDialog):
 
     def accept(self):
 
-
         groupName = self.groupLineEdit.text()
         if self.createGroup(groupName):
             super().accept()
@@ -218,8 +217,8 @@ class UngroupSelected:
             return
 
         groupContainer = 'Group_container'
-
         modules = []
+
         for group in filteredGroups:
             modules.extend(self.findChildModules(group))
 
@@ -244,7 +243,6 @@ class UngroupSelected:
 
             cmds.delete(group)
 
-
             if parentGroup:
                 parentGroup = parentGroup[0]
                 children = cmds.listRelatives(parentGroup, children = True)
@@ -254,7 +252,7 @@ class UngroupSelected:
                     cmds.select(parentGroup, replace = True)
                     UngroupSelected()
 
-        if cmds.objExists(groupContainer):
+        if cmds.objExists(groupContainer) and not cmds.container(groupContainer, query=True, nodeList=True):
             cmds.delete(groupContainer)
 
         for container in moduleContainers:
