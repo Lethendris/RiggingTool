@@ -5,7 +5,9 @@ import System.utils as utils
 import maya.OpenMayaUI as omui
 import os
 import importlib
+
 importlib.reload(utils)
+
 
 class MirrorModule(QtWidgets.QDialog):
     def __init__(self, parent = None):  # Accept the parent UI instance
@@ -45,6 +47,8 @@ class MirrorModule(QtWidgets.QDialog):
 
         self.modules = tempModuleList
 
+        self.moduleNames = [f"instance_{i}" for i in range(1, 15)]
+
         if self.modules:
             self.showUI()
 
@@ -77,65 +81,204 @@ class MirrorModule(QtWidgets.QDialog):
         self.exec_()
 
     def setupMirrorUI(self):
-
-        self.setWindowTitle('Mirror Module Settings')
-        self.setMinimumSize(300, 400)
+        self.setWindowTitle('Mirror Module(s)')  # Changed from 'Mirror Module Settings'
+        self.setMinimumSize(350, 400)
         self.setWindowModality(QtCore.Qt.WindowModal)
-        # self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
 
+        # --- Main Layout for the Dialog ---
         mainLayout = QtWidgets.QVBoxLayout(self)
-        mainLayout.setContentsMargins(5,5,5,5)
+        mainLayout.setContentsMargins(5, 5, 5, 5)
+        mainLayout.setSpacing(8)
 
-        mirrorPlaneGroupBox = QtWidgets.QGroupBox("Mirror Plane:")
+        # --- 1. Create the Scroll Area ---
+        scrollArea = QtWidgets.QScrollArea()
+        scrollArea.setWidgetResizable(True)  # Allows the inner widget to resize
+        scrollArea.setFocusPolicy(QtCore.Qt.NoFocus)  # Prevents scroll area from stealing focus
+        scrollArea.setStyleSheet("QScrollArea { border: 0px; }")  # Optional: remove border
+
+        # --- 2. Create the Container Widget for ALL scrollable content ---
+        scrollContentWidget = QtWidgets.QWidget()
+        # This layout will hold all the sections that need to scroll
+        self.scrollContentLayout = QtWidgets.QVBoxLayout(scrollContentWidget)
+        self.scrollContentLayout.setContentsMargins(0, 0, 0, 0)  # No extra margins inside scroll area
+        self.scrollContentLayout.setSpacing(8)
+        self.scrollContentLayout.setAlignment(QtCore.Qt.AlignTop)  # Align content to top
+
+        # --- Populate Scrollable Content ---
+
+        # --- Mirror Plane GroupBox ---
+        mirrorPlaneGroupBox = QtWidgets.QGroupBox('Plane')
         mirrorPlaneLayout = QtWidgets.QHBoxLayout()
+        mirrorPlaneLayout.setAlignment(QtCore.Qt.AlignCenter)
+        mirrorPlaneLayout.setSpacing(50)
         mirrorPlaneGroupBox.setLayout(mirrorPlaneLayout)
-        # Mirror plane buttons
 
-        self.xyRadioButton  = QtWidgets.QRadioButton("XY")
-        self.yzRadioButton  = QtWidgets.QRadioButton("YZ")
-        self.xzRadioButton  = QtWidgets.QRadioButton("XZ")
-        self.yzRadioButton.setChecked(True)
+        # mirrorPlaneLayout.addWidget(QtWidgets.QLabel("Mirror Plane:")) # Label inside groupbox
+        self.xyRadioButton = QtWidgets.QRadioButton("XY")
+        self.yzRadioButton = QtWidgets.QRadioButton("YZ")
+        self.xzRadioButton = QtWidgets.QRadioButton("XZ")
+        self.yzRadioButton.setChecked(True)  # Default to YZ plane
+
+        self.mirrorPlaneButtonGroup = QtWidgets.QButtonGroup(self)
+        self.mirrorPlaneButtonGroup.addButton(self.xyRadioButton, 0)
+        self.mirrorPlaneButtonGroup.addButton(self.yzRadioButton, 1)
+        self.mirrorPlaneButtonGroup.addButton(self.xzRadioButton, 2)
 
         mirrorPlaneLayout.addWidget(self.xyRadioButton)
         mirrorPlaneLayout.addWidget(self.yzRadioButton)
         mirrorPlaneLayout.addWidget(self.xzRadioButton)
+        self.scrollContentLayout.addWidget(mirrorPlaneGroupBox)  # Add to scrollable content
 
-        scrollArea = QtWidgets.QScrollArea()
-        scrollArea.setWidgetResizable(True)  # Allows the inner widget to resize
-        scrollArea.setFocusPolicy(QtCore.Qt.NoFocus)  # Prevents scroll area from stealing focus
-        scrollArea.setStyleSheet("QScrollArea { border: 0px; }")
+        # --- Mirrored Names GroupBox ---
+        mirroredNamesGroupBox = QtWidgets.QGroupBox("Name(s)")
+        mirroredNamesLayout = QtWidgets.QVBoxLayout()
+        mirroredNamesGroupBox.setLayout(mirroredNamesLayout)
 
-        scrollWidget = QtWidgets.QWidget()
+        namesGridLayout = QtWidgets.QGridLayout()
+        namesGridLayout.setColumnStretch(0, 0)  # Original name label
+        namesGridLayout.setColumnStretch(1, 1)  # Line edit
+        namesGridLayout.setSpacing(5)
+        namesGridLayout.setAlignment(QtCore.Qt.AlignTop)
 
-        self.mirrorModulesLayout = QtWidgets.QVBoxLayout(scrollWidget)# Set layout on the widget
+        self.mirrorNames = {}
 
-        mirroredNamesGroupBox = QtWidgets.QGroupBox("Mirrored Name(s):")
-
-        # The GroupBox will have its own layout to hold the scroll area
-        groupBoxLayout = QtWidgets.QHBoxLayout()
-        groupBoxLayout.setContentsMargins(2,2,2,2)
-        mirroredNamesGroupBox.setLayout(groupBoxLayout)
-
-        for module_name in self.moduleNames:
-            layout = QtWidgets.QHBoxLayout()
-            layout.setSpacing(2)
+        for i, module_name in enumerate(self.moduleNames):
             label = QtWidgets.QLabel(f"{module_name} >>")
+            label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             lineEdit = QtWidgets.QLineEdit(f"{module_name}_mirror")
-            lineEdit.setFixedWidth(120)
-            layout.addWidget(label)
-            layout.addWidget(lineEdit)
-            self.mirrorModulesLayout.addLayout(layout)
+            self.mirrorNames[module_name] = lineEdit
+            namesGridLayout.addWidget(label, i, 0)
+            namesGridLayout.addWidget(lineEdit, i, 1)
 
-        scrollArea.setWidget(scrollWidget)
-        # Add the scroll area to the GroupBox's layout
-        groupBoxLayout.addWidget(scrollArea)
-        # Add the GroupBox to the main dialog's layout        mainLayout.addWidget(mirroredNamesGroupBox)
+        mirroredNamesLayout.addLayout(namesGridLayout)
+        self.scrollContentLayout.addWidget(mirroredNamesGroupBox)  # Add to scrollable content
 
-        mainLayout.addWidget(mirrorPlaneGroupBox)
-        mainLayout.addWidget(mirroredNamesGroupBox)
+        # --- Dynamic Mirror Settings ---
+        if self.sameMirrorSettingsForAll:
+            # Pass the scrollContentLayout to the function
+            self.generateMirrorFunctionControls(self.scrollContentLayout, None)
+        else:
+            for module_name in self.moduleNames:
+                # Pass the scrollContentLayout and module name
+                self.generateMirrorFunctionControls(self.scrollContentLayout, module_name)
 
-        # add to main layout
-        mainLayout.addStretch()
+        scrollArea.setWidget(scrollContentWidget)
+        mainLayout.addWidget(scrollArea)
+
+        # --- Bottom Buttons (fixed, outside scroll area) ---
+        buttonLayout = QtWidgets.QHBoxLayout()
+        self.mirrorButton = QtWidgets.QPushButton("Accept")
+        self.closeButton = QtWidgets.QPushButton("Cancel")
+
+        buttonLayout.addWidget(self.mirrorButton)
+        buttonLayout.addWidget(self.closeButton)
+        mainLayout.addLayout(buttonLayout)
+
+        # --- Connections ---
+        self.closeButton.clicked.connect(self.reject)
+        self.mirrorButton.clicked.connect(self.accept)
+
+    def accept(self):
+        super().accept()
+        self.moduleInfo = []
+
+        self.mirrorPlane = self.mirrorPlaneButtonGroup.checkedButton().text()
+
+        for i in range(len(self.modules)):
+            originalModule = self.modules[i]
+            originalModuleName = self.moduleNames[i]
+
+            originalModulePrefix = originalModule.partition("__")[0]
+            mirroredModuleUserSpecifiedName = self.mirrorNames[originalModuleName].text()
+            mirroredModuleName = f'{originalModulePrefix}__{mirroredModuleUserSpecifiedName}'
+
+            if utils.doesBlueprintUserSpecifiedNameExist(mirroredModuleUserSpecifiedName):
+                QtWidgets.QMessageBox.question(self, "Name Conflict", f'Name {mirroredModuleUserSpecifiedName} already exists, aborting mirror.', QtWidgets.QMessageBox.StandardButton.Ok)
+                return
+
+            if self.sameMirrorSettingsForAll:
+                translationSettingText = self.globalSettings['translationButtonGroup'].checkedButton().text()
+                rotationSettingText = self.globalSettings['rotationButtonGroup'].checkedButton().text()
+
+            else:
+                translationSettingText = self.moduleSettings[originalModuleName]['translationButtonGroup'].checkedButton().text()
+                rotationSettingText = self.moduleSettings[originalModuleName]['rotationButtonGroup'].checkedButton().text()
+
+            self.moduleInfo.append([originalModuleName, mirroredModuleName, self.mirrorPlane, translationSettingText, rotationSettingText])
+        print(self.moduleInfo)
+
+    def generateMirrorFunctionControls(self, parentLayout, moduleName):
+        """
+                Generates a QGroupBox with mirror function and orientation controls.
+                Adds it to the given parent_layout.
+                """
+        textLabel = 'Settings'
+        if moduleName:
+            textLabel = f'{moduleName} Settings'
+
+        mirrorSettingsGroupBox = QtWidgets.QGroupBox(textLabel)
+        mirrorSettingsGridLayout = QtWidgets.QGridLayout()
+        mirrorSettingsGroupBox.setLayout(mirrorSettingsGridLayout)
+
+        # Row 0: Mirror Function
+        mirrorSettingsGridLayout.addWidget(QtWidgets.QLabel("Mirror Rotation:"), 0, 0, QtCore.Qt.AlignRight)
+        self.behaviorRadioButton = QtWidgets.QRadioButton("Behavior")
+        self.orientationRadioButton = QtWidgets.QRadioButton("Orientation")
+        self.behaviorRadioButton.setChecked(True)
+
+        # QButtonGroup for Mirror Function (create unique names if per-module)
+        self.rotationButtonGroup = QtWidgets.QButtonGroup(self)
+        self.rotationButtonGroup.addButton(self.behaviorRadioButton, 0)
+        self.rotationButtonGroup.addButton(self.orientationRadioButton, 1)
+
+        mirrorSettingsGridLayout.addWidget(self.behaviorRadioButton, 0, 1)
+        mirrorSettingsGridLayout.addWidget(self.orientationRadioButton, 0, 2)
+
+        # Row 1: Orientation/World Space
+        mirrorSettingsGridLayout.addWidget(QtWidgets.QLabel("Mirror Translation:"), 1, 0, QtCore.Qt.AlignRight)
+        self.mirroredRadioButton = QtWidgets.QRadioButton("Mirrored")
+        self.worldSpaceRadioButton = QtWidgets.QRadioButton("World Space")
+        self.mirroredRadioButton.setChecked(True)
+
+        # QButtonGroup for Orientation/World Space (create unique names if per-module)
+        self.translationButtonGroup = QtWidgets.QButtonGroup(self)
+        self.translationButtonGroup.addButton(self.mirroredRadioButton, 0)
+        self.translationButtonGroup.addButton(self.worldSpaceRadioButton, 1)
+
+        mirrorSettingsGridLayout.addWidget(self.mirroredRadioButton, 1, 1)
+        mirrorSettingsGridLayout.addWidget(self.worldSpaceRadioButton, 1, 2)
+
+        mirrorSettingsGridLayout.setColumnStretch(0, 0)
+        mirrorSettingsGridLayout.setColumnStretch(1, 0)
+        mirrorSettingsGridLayout.setColumnStretch(2, 1)
+
+        # Add the generated GroupBox to the parent_layout
+        parentLayout.addWidget(mirrorSettingsGroupBox)
+
+        # Store references to these dynamically created widgets if you need to retrieve their values later
+        # You'll need a dictionary of dictionaries, e.g., self.module_settings[moduleName] = { 'behavior_btn': ..., 'orientation_btn': ... }
+        # Or if sameMirrorSettingsForAll, just store them directly.
+        if moduleName:
+            if not hasattr(self, 'moduleSettings'):
+                self.moduleSettings = {}
+            self.moduleSettings[moduleName] = {
+                'behaviorButton': self.behaviorRadioButton,
+                'orientationButton': self.orientationRadioButton,
+                'mirroredButton': self.mirroredRadioButton,
+                'worldSpaceButton': self.worldSpaceRadioButton,
+                'translationButtonGroup': self.translationButtonGroup,
+                'rotationButtonGroup': self.rotationButtonGroup,
+            }
+        else:  # sameMirrorSettingsForAll
+            self.globalSettings = {
+                'behaviorButton': self.behaviorRadioButton,
+                'orientationButton': self.orientationRadioButton,
+                'mirroredButton': self.mirroredRadioButton,
+                'worldSpaceButton': self.worldSpaceRadioButton,
+                'translationButtonGroup': self.translationButtonGroup,
+                'rotationButtonGroup': self.rotationButtonGroup
+            }
 
     def canModuleBeMirrored(self, module):
         blueprintsFolder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Blueprint')

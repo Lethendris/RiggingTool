@@ -500,6 +500,7 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.scrollArea = QtWidgets.QScrollArea()
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setFrameShape(QtWidgets.QFrame.Box)
+        self.scrollArea.setFocusPolicy(QtCore.Qt.NoFocus)
         self.scrollArea.setFixedHeight(300)
 
         self.scrollWidget = QtWidgets.QWidget()

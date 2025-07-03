@@ -84,6 +84,7 @@ class GroupSelectedDialog(QtWidgets.QDialog):
 
         cmds.delete(self.tempGroupTransform)
 
+
     def accept(self):
 
         groupName = self.groupLineEdit.text()
