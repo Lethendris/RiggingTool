@@ -62,6 +62,8 @@ class Blueprint:
             if split != '' and after == '':
                 self.hookObject = hookObjectIn
 
+        self.canBeMirrored = True
+
     # Methods intended for overriding by derived class
     def install_custom(self, joints):
         """
@@ -865,3 +867,6 @@ class Blueprint:
         rootControl_hookConstraint = f'{rootControl}_hookConstraint'
 
         return cmds.objExists(rootControl_hookConstraint)
+
+    def canModuleBeMirrored(self):
+        return self.canBeMirrored

@@ -23,7 +23,6 @@ class SingleJointSegment(blueprintMod.Blueprint):
 
         self.parentLayout.addLayout(layout)
 
-
     def lockPhase1(self):
         # Gather and return all required information from this module's control objects
         # joint positions = list of joint positions, from root down the hierarchy

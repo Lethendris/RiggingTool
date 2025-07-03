@@ -245,8 +245,6 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self.moduleInstance = None
 
-
-
         if parent is None:
             try:
                 parent = mayaMainWindow()
@@ -364,16 +362,19 @@ class Blueprint_UI(QtWidgets.QDialog):
             currentModuleFile = None
 
             self.buttons['Ungroup'].setEnabled(False)
+            self.buttons['Mirror Module'].setEnabled(False)
 
             if len(selectedNodes) == 1:
                 lastSelected = selectedNodes[0]
 
                 if lastSelected.startswith('Group__'):
                     self.buttons['Ungroup'].setEnabled(True)
+                    self.buttons['Mirror Module'].setEnabled(True)
+                    self.buttons['Mirror Module'].setText('Mirror Group')
 
                 namespaceAndNode = utils.stripLeadingNamespace(lastSelected)
 
-                if namespaceAndNode is not None:
+                if namespaceAndNode:
                     namespace = namespaceAndNode[0]
 
                     validModules = [module for module in utils.loadAllModulesFromDirectory(self.modulesDir).keys()]
@@ -391,7 +392,7 @@ class Blueprint_UI(QtWidgets.QDialog):
             constrainCommand = self.constrainRookToHook
             constrainLabel = 'Constrain Root > Hook'
 
-            if selectedModuleNamespace is not None:
+            if selectedModuleNamespace:
                 controlEnable = True
                 userSpecifiedName = selectedModuleNamespace.partition('__')[2]
 
@@ -401,17 +402,17 @@ class Blueprint_UI(QtWidgets.QDialog):
                 moduleClass = getattr(mod, mod.CLASS_NAME)
                 self.moduleInstance = moduleClass(userSpecifiedName, None)
 
+                self.buttons['Mirror Module'].setEnabled(True)
+                self.buttons['Mirror Module'].setText('Mirror Module')
+
                 if self.moduleInstance.isRootConstrained():
                     constrainCommand = self.unconstrainRookFromHook
                     constrainLabel = 'Unconstrain Root'
 
-            self.buttons['Mirror Module'].setEnabled(controlEnable)
             self.buttons['Rehook'].setEnabled(controlEnable)
-            # self.buttons['Group Selected'].setEnabled(controlEnable)
             self.buttons['Snap Root > Hook'].setEnabled(controlEnable)
             self.buttons['Constrain Root > Hook'].setEnabled(controlEnable)
             self.buttons['Constrain Root > Hook'].setText(constrainLabel)
-
             self.buttons['Constrain Root > Hook'].clicked.connect(constrainCommand)
 
             self.buttons['Delete'].setEnabled(controlEnable)
@@ -685,14 +686,6 @@ class Blueprint_UI(QtWidgets.QDialog):
         }
         """)
 
-        # self.buttons['Snap Root > Hook'].setEnabled(False)
-        # self.buttons['Mirror Module'].setEnabled(False)
-        # self.buttons['Rehook'].setEnabled(False)
-        # self.buttons['Ungroup'].setEnabled(False)
-        # self.buttons['Group Selected'].setEnabled(True)
-        # self.buttons['Constrain Root > Hook'].setEnabled(False)
-        # self.buttons['Delete'].setEnabled(False)
-
         # ADD TO MAIN LAYOUT
         self.modulesTabLayout.addWidget(self.createHLine())
         self.modulesTabLayout.addLayout(self.moduleInstanceNameLayout)
@@ -712,6 +705,12 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Constrain Root > Hook'].clicked.connect(self.constrainRookToHook)
         self.buttons['Group Selected'].clicked.connect(self.groupSelected)
         self.buttons['Ungroup'].clicked.connect(self.ungroupSelected)
+        self.buttons['Mirror Module'].clicked.connect(self.mirrorSelection)
+
+    def mirrorSelection(self):
+        import System.mirrorModule as mirrorModule
+        importlib.reload(mirrorModule)
+        mirrorModule.MirrorModule(parent = self)
 
     def snapRootToHook(self):
         self.moduleInstance.snapRootToHook()
@@ -788,7 +787,6 @@ class Blueprint_UI(QtWidgets.QDialog):
             if cmds.objExists(groupContainer):
                 cmds.lockNode(groupContainer, lock = False, lockUnpublished = False)
                 cmds.delete(groupContainer)
-
 
             for module in moduleInstances:
                 hookObject = module[1][4]
