@@ -206,7 +206,11 @@ class MirrorModule(QtWidgets.QDialog):
                 rotationSettingText = self.moduleSettings[originalModuleName]['rotationButtonGroup'].checkedButton().text()
 
             self.moduleInfo.append([originalModuleName, mirroredModuleName, self.mirrorPlane, translationSettingText, rotationSettingText])
-        print(self.moduleInfo)
+
+        self.mirrorModules()
+
+    def mirrorModules(self):
+        print('mirrorModules')
 
     def generateMirrorFunctionControls(self, parentLayout, moduleName):
         """
