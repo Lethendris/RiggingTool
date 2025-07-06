@@ -5,9 +5,32 @@ import System.utils as utils
 import maya.OpenMayaUI as omui
 import os
 import importlib
+import time
 
 importlib.reload(utils)
 
+class MirrorProgressDialog(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Mirroring Progress')
+        self.setFixedSize(300, 100)
+        self.setWindowModality(QtCore.Qt.ApplicationModal) # Blocks all other windows
+        self.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.WindowTitleHint | QtCore.Qt.CustomizeWindowHint) # Minimal window
+
+        mainLayout = QtWidgets.QVBoxLayout(self)
+        self.progressLabel = QtWidgets.QLabel("Initializing...")
+        self.progressBar = QtWidgets.QProgressBar()
+        self.progressBar.setMinimum(0)
+        self.progressBar.setMaximum(100)
+
+        mainLayout.addWidget(self.progressLabel)
+        mainLayout.addWidget(self.progressBar)
+
+    def updateProgress(self, value, message=""):
+        self.progressBar.setValue(value)
+        if message:
+            self.progressLabel.setText(message)
+        QtWidgets.QApplication.processEvents() # Process events to update UI
 
 class MirrorModule(QtWidgets.QDialog):
     def __init__(self, parent = None):  # Accept the parent UI instance
@@ -82,7 +105,7 @@ class MirrorModule(QtWidgets.QDialog):
 
     def setupMirrorUI(self):
         self.setWindowTitle('Mirror Module(s)')  # Changed from 'Mirror Module Settings'
-        self.setMinimumSize(350, 400)
+        self.setFixedSize(350, 400)
         self.setWindowModality(QtCore.Qt.WindowModal)
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool)
 
@@ -118,7 +141,7 @@ class MirrorModule(QtWidgets.QDialog):
         self.xyRadioButton = QtWidgets.QRadioButton("XY")
         self.yzRadioButton = QtWidgets.QRadioButton("YZ")
         self.xzRadioButton = QtWidgets.QRadioButton("XZ")
-        self.yzRadioButton.setChecked(True)  # Default to YZ plane
+        self.xyRadioButton.setChecked(True)  # Default to YZ plane
 
         self.mirrorPlaneButtonGroup = QtWidgets.QButtonGroup(self)
         self.mirrorPlaneButtonGroup.addButton(self.xyRadioButton, 0)
@@ -205,12 +228,104 @@ class MirrorModule(QtWidgets.QDialog):
                 translationSettingText = self.moduleSettings[originalModuleName]['translationButtonGroup'].checkedButton().text()
                 rotationSettingText = self.moduleSettings[originalModuleName]['rotationButtonGroup'].checkedButton().text()
 
-            self.moduleInfo.append([originalModuleName, mirroredModuleName, self.mirrorPlane, translationSettingText, rotationSettingText])
+            self.moduleInfo.append([originalModule, mirroredModuleName, self.mirrorPlane, translationSettingText, rotationSettingText])
 
         self.mirrorModules()
 
     def mirrorModules(self):
-        print('mirrorModules')
+
+        mirrorProgressDialog = MirrorProgressDialog(parent = self.parent)
+        mirrorProgressDialog.show()
+
+        mirrorModulesProgress = 0
+
+        phase1_proportion = 15
+        phase2_proportion = 70
+        phase3_proportion = 15
+
+        mirrorProgressDialog.updateProgress(5, "Collecting module data...")
+        time.sleep(0.1)  # Simulate a small delay
+
+
+        blueprintsFolder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Blueprint')
+
+        validModules = [module for module in utils.loadAllModulesFromDirectory(blueprintsFolder).keys()]
+        validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(blueprintsFolder).values()]
+
+        for module in self.moduleInfo:
+            moduleName = module[0].partition('__')[0]
+
+            if moduleName in validModuleNames:
+                index = validModuleNames.index(moduleName)
+                module.append(validModules[index])
+
+        mirrorModulesProgress_increment = phase1_proportion / len(self.moduleInfo)
+
+        for module in self.moduleInfo:
+
+            userSpecifiedName = module[0].partition('__')[2]
+
+            mod = importlib.import_module(f'Blueprint.{module[5]}')
+            importlib.reload(mod)
+
+            moduleClass = getattr(mod, mod.CLASS_NAME)
+            moduleInst = moduleClass(userSpecifiedName, None)
+
+            hookObject = moduleInst.findHookObject()
+            newHookObject = None
+
+            hookModule = utils.stripLeadingNamespace(hookObject)[0]
+
+            hookFound = False
+
+            for m in self.moduleInfo:
+
+                if hookModule == m[0]:
+                    hookFound = True
+
+                    if m == module:
+                        continue
+
+                    hookObjectName = utils.stripLeadingNamespace(hookObject)[1]
+                    newHookObject = f'{m[1]}:{hookObjectName}'
+
+            if not hookFound:
+                newHookObject = hookObject
+
+            module.append(newHookObject)
+
+            hookConstrained = moduleInst.isRootConstrained()
+            module.append(hookConstrained)
+
+            mirrorModulesProgress += mirrorModulesProgress_increment
+            progressMessage = f"Mirroring: {module[0]}"
+            mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
+            time.sleep(0.1)
+
+        mirrorModulesProgress_increment = phase2_proportion / len(self.moduleInfo)
+
+        for module in self.moduleInfo:
+            newUserSpecifiedName = module[1].partition('__')[2]
+            mod = importlib.import_module(f'Blueprint.{module[5]}')
+            importlib.reload(mod)
+
+            moduleClass = getattr(mod, mod.CLASS_NAME)
+            moduleInst = moduleClass(newUserSpecifiedName, None)
+            print(module[0], module[2], module[3], module[4])
+            moduleInst.mirror(module[0], module[2], module[3], module[4])
+
+            mirrorModulesProgress += mirrorModulesProgress_increment
+
+            progressMessage = f"Mirroring: {module[0]}"
+            mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
+            time.sleep(0.1)
+
+        mirrorProgressDialog.updateProgress(100, "Mirroring complete!")
+        time.sleep(1)  # Give user time to read "complete"
+        mirrorProgressDialog.close()
+
+
+
 
     def generateMirrorFunctionControls(self, parentLayout, moduleName):
         """
@@ -261,8 +376,6 @@ class MirrorModule(QtWidgets.QDialog):
         parentLayout.addWidget(mirrorSettingsGroupBox)
 
         # Store references to these dynamically created widgets if you need to retrieve their values later
-        # You'll need a dictionary of dictionaries, e.g., self.module_settings[moduleName] = { 'behavior_btn': ..., 'orientation_btn': ... }
-        # Or if sameMirrorSettingsForAll, just store them directly.
         if moduleName:
             if not hasattr(self, 'moduleSettings'):
                 self.moduleSettings = {}
@@ -329,3 +442,8 @@ class MirrorModule(QtWidgets.QDialog):
                         returnModules.append(module)
 
         return returnModules
+
+
+
+
+

@@ -63,6 +63,7 @@ class Blueprint:
                 self.hookObject = hookObjectIn
 
         self.canBeMirrored = True
+        self.mirrored = False
 
     # Methods intended for overriding by derived class
     def install_custom(self, joints):
@@ -358,6 +359,7 @@ class Blueprint:
         cmds.select(clear = True)
 
         joints = []  # Create joints as defined in self.jointInfo.
+
         for index, (jointName, jointPos) in enumerate(self.jointInfo):
             parentName = ''
 
@@ -377,6 +379,31 @@ class Blueprint:
 
             if index > 0:  # Orient the joint properly if it's not the first one.
                 cmds.joint(parentName, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
+
+        if self.mirrored:
+            mirrorXY = self.mirrorPlane == 'XY'
+            mirrorYZ = self.mirrorPlane == 'YZ'
+            mirrorXZ = self.mirrorPlane == 'XZ'
+            mirrorBehavior = self.rotationFunction == 'Behavior'
+
+            mirroredNodes = cmds.mirrorJoint(joints[0], mirrorXY = mirrorXY, mirrorYZ = mirrorYZ, mirrorXZ = mirrorXZ, mirrorBehavior = mirrorBehavior)
+
+            cmds.delete(joints)
+
+            mirroredJoints = []
+
+            for node in mirroredNodes:
+                if cmds.objectType(node, isType = 'joint'):
+                    mirroredJoints.append(node)
+
+                else:
+                    cmds.delete(node)
+
+            for index, joint in enumerate(mirroredJoints):
+                jointName = self.jointInfo[index][0]
+                newJointName = cmds.rename(joint, f'{self.moduleNamespace}:{jointName}')
+
+                self.jointInfo[index][1] = cmds.xform(newJointName, query = True, worldSpace = True, translation = True)
 
         cmds.parent(joints[0], self.jointsGrp, absolute = True)  # Parent the root joint to the joints group.
 
@@ -399,6 +426,8 @@ class Blueprint:
         self.install_custom(joints)  # Call custom installation logic from derived classes.
 
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)  # Lock the container to prevent accidental edits.
+
+
 
     def createTranslationControlAtJoint(self, joint):
         """
@@ -467,6 +496,10 @@ class Blueprint:
         rootLocator = ikNodes['rootLocator']
         endLocator = ikNodes['endLocator']
 
+        if self.mirrored:
+            if self.mirrorPlane == 'XZ':
+                cmds.setAttr(f'{ikHandle}.twist', 90)
+
         # Constrain end locator to translation control.
         childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset = False, name = f'{endLocator}_pointConstraint')[0]
 
@@ -492,6 +525,29 @@ class Blueprint:
         self.moduleTransform = utils.createModuleTransformControl(name = f'{self.moduleNamespace}:module_transform')  # Create an empty group to serve as the module's main transform.
 
         cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = position)  # Set its world space position.
+
+        if self.mirrored:
+            duplicateTransform = cmds.duplicate(f'{self.originalModule}:module_transform', parentOnly = True, name = 'TEMP_TRANSFORM')[0]
+            emptyGroup = cmds.group(empty = True)
+            cmds.parent(duplicateTransform, emptyGroup, absolute = True)
+
+            scaleAttr = 'scaleX'
+            if self.mirrorPlane == 'XZ':
+                scaleAttr = 'scaleY'
+            elif self.mirrorPlane == 'XY':
+                scaleAttr = 'scaleZ'
+
+            cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
+
+            parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
+            cmds.delete(parentConstraint, emptyGroup)
+
+            tempLocator = cmds.spaceLocator()[0]
+            scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
+            scale = cmds.getAttr(f'{tempLocator}.scaleX')
+            cmds.delete(scaleConstraint, tempLocator)
+
+            cmds.xform(self.moduleTransform, objectSpace = True, scale = (scale, scale, scale))
 
         utils.addNodeToContainer(self.containerName, self.moduleTransform, includeHierarchyBelow = True)
 
@@ -859,7 +915,6 @@ class Blueprint:
             cmds.select(rootControl, replace = True)
             cmds.setToolTo('moveSuperContext')
 
-
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
 
     def isRootConstrained(self):
@@ -870,3 +925,13 @@ class Blueprint:
 
     def canModuleBeMirrored(self):
         return self.canBeMirrored
+
+    def mirror(self, originalModule, mirrorPlane, translationFunction, rotationFunction):
+        self.mirrored = True
+        self.originalModule = originalModule
+        self.mirrorPlane = mirrorPlane
+        self.rotationFunction = rotationFunction
+
+        self.install()
+
+
