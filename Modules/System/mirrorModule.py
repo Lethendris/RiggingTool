@@ -311,7 +311,6 @@ class MirrorModule(QtWidgets.QDialog):
 
             moduleClass = getattr(mod, mod.CLASS_NAME)
             moduleInst = moduleClass(newUserSpecifiedName, None)
-            print(module[0], module[2], module[3], module[4])
             moduleInst.mirror(module[0], module[2], module[3], module[4])
 
             mirrorModulesProgress += mirrorModulesProgress_increment
@@ -323,8 +322,6 @@ class MirrorModule(QtWidgets.QDialog):
         mirrorProgressDialog.updateProgress(100, "Mirroring complete!")
         time.sleep(1)  # Give user time to read "complete"
         mirrorProgressDialog.close()
-
-
 
 
     def generateMirrorFunctionControls(self, parentLayout, moduleName):

@@ -352,7 +352,7 @@ class Blueprint:
         self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:joints_grp')
         self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:hierarchyConnectors_grp')
         self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:orientationConnectors_grp')
-        self.moduleGrp = cmds.group(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, name = f'{self.moduleNamespace}:module_grp')
+        self.moduleGrp = cmds.group([self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp], name = f'{self.moduleNamespace}:module_grp')
 
         utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)  # Create a container and include the hierarchy.
 
@@ -425,6 +425,8 @@ class Blueprint:
 
         self.install_custom(joints)  # Call custom installation logic from derived classes.
 
+
+        utils.forceSceneUpdate()
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)  # Lock the container to prevent accidental edits.
 
 
@@ -444,14 +446,15 @@ class Blueprint:
         utils.addNodeToContainer(self.containerName, container)  # Add the control's container to the module's main container.
 
         cmds.parent(control, self.moduleTransform, absolute = True)  # Parent the control under the module's main transform.
+        cmds.scaleConstraint(self.moduleTransform, control, maintainOffset = False)
 
         jointPos = cmds.xform(joint, query = True, worldSpace = True, translation = True)  # Move the control to match the joint's world position.
         cmds.xform(control, worldSpace = True, absolute = True, translation = jointPos)
 
         niceName = utils.stripLeadingNamespace(joint)[1]  # Publish the translation attribute of the control to its container.
         attrName = f'{niceName}_T'
-        cmds.container(container, edit = True, publishAndBind = (f'{control}.translate', attrName))
 
+        cmds.container(container, edit = True, publishAndBind = (f'{control}.translate', attrName))
         cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))  # Publish the control's container to the module's main container.
 
         return control
@@ -527,11 +530,13 @@ class Blueprint:
         cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = position)  # Set its world space position.
 
         if self.mirrored:
+
             duplicateTransform = cmds.duplicate(f'{self.originalModule}:module_transform', parentOnly = True, name = 'TEMP_TRANSFORM')[0]
             emptyGroup = cmds.group(empty = True)
             cmds.parent(duplicateTransform, emptyGroup, absolute = True)
 
             scaleAttr = 'scaleX'
+
             if self.mirrorPlane == 'XZ':
                 scaleAttr = 'scaleY'
             elif self.mirrorPlane == 'XY':
@@ -540,14 +545,15 @@ class Blueprint:
             cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
 
             parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
-            cmds.delete(parentConstraint, emptyGroup)
+            cmds.delete(parentConstraint)
+            cmds.delete(emptyGroup)
 
             tempLocator = cmds.spaceLocator()[0]
             scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
             scale = cmds.getAttr(f'{tempLocator}.scaleX')
-            cmds.delete(scaleConstraint, tempLocator)
+            cmds.delete([scaleConstraint, tempLocator])
 
-            cmds.xform(self.moduleTransform, objectSpace = True, scale = (scale, scale, scale))
+            cmds.xform(self.moduleTransform, objectSpace = True, scale = [scale, scale, scale])
 
         utils.addNodeToContainer(self.containerName, self.moduleTransform, includeHierarchyBelow = True)
 
@@ -933,5 +939,63 @@ class Blueprint:
         self.rotationFunction = rotationFunction
 
         self.install()
+
+        cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
+
+        for jointInfo in self.jointInfo:
+            jointName = jointInfo[0]
+
+            originalJoint = f'{self.originalModule}:{jointName}'
+            newJoint = f'{self.moduleNamespace}:{jointName}'
+
+            originalRotationOrder = cmds.getAttr(f'{originalJoint}.rotateOrder')
+            cmds.setAttr(f'{newJoint}.rotateOrder', originalRotationOrder)
+
+        index = 0
+        for jointInfo in self.jointInfo:
+            mirrorPoleVectorLocator = False
+            mirrorOrientationConnector = False
+            if index < len(self.jointInfo) - 1:
+                mirrorPoleVectorLocator = True
+                mirrorOrientationConnector = True
+
+            jointName = jointInfo[0]
+
+            originalJoint = f'{self.originalModule}:{jointName}'
+            newJoint = f'{self.moduleNamespace}:{jointName}'
+
+            originalTranslationControl = self.getTranslationControl(originalJoint)
+            newTranslationControl = self.getTranslationControl(newJoint)
+
+            originalTranslationControlPosition = cmds.xform(originalTranslationControl, query = True, worldSpace = True, translation = True)
+
+            if self.mirrorPlane == 'YZ':
+                originalTranslationControlPosition[0] *= -1
+
+            elif self.mirrorPlane == 'XZ':
+                originalTranslationControlPosition[1] *= -1
+
+            elif self.mirrorPlane == 'XY':
+                originalTranslationControlPosition[2] *= -1
+
+            cmds.xform(newTranslationControl, worldSpace = True, absolute = True, translation = originalTranslationControlPosition)
+
+            if mirrorPoleVectorLocator:
+                originalPoleVectorLocator = f'{originalTranslationControl}_poleVectorLocator'
+                newPoleVectorLocator = f'{newTranslationControl}_poleVectorLocator'
+                originalPoleVectorLocatorPosition = cmds.xform(originalPoleVectorLocator, query = True, worldSpace = True, translation = True)
+
+                if self.mirrorPlane == 'YZ':
+                    originalPoleVectorLocatorPosition[0] *= -1
+
+                elif self.mirrorPlane == 'XZ':
+                    originalPoleVectorLocatorPosition[1] *= -1
+
+                elif self.mirrorPlane == 'XY':
+                    originalPoleVectorLocatorPosition[2] *= -1
+
+                cmds.xform(newPoleVectorLocator, worldSpace = True, absolute = True, translation = originalPoleVectorLocatorPosition)
+
+            index += 1
 
 
