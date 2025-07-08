@@ -1,14 +1,38 @@
 import os
+from dis import Positions
+
 import maya.cmds as cmds
 import importlib
 
 
 def getPythonFiles(directory):
+    """
+    Retrieves a list of Python files (.py) from the specified directory.
+
+    Args:
+        directory (str): The path to the directory to search.
+
+    Returns:
+        list: A list of Python filenames found in the directory.
+    """
+
     return [f for f in os.listdir(directory) if f.endswith('.py') and os.path.isfile(os.path.join(directory, f))]
 
 
 def importModuleFromPath(moduleName, filePath):
-    """Dynamically import a module from a file path"""
+    """
+    Dynamically imports a Python module from a given file path.
+
+    Args:
+        moduleName (str): The name to assign to the imported module.
+        filePath (str): The full path to the Python file.
+
+    Returns:
+        module: The imported module object.
+
+    Raises:
+        FileNotFoundError: If the module file does not exist.
+    """
     if not os.path.exists(filePath):
         raise FileNotFoundError(f"Module file not found: {filePath}")
 
@@ -20,15 +44,18 @@ def importModuleFromPath(moduleName, filePath):
 def loadAllModulesFromDirectory(directory):
     """
     Loads all Python modules from the specified directory and returns their metadata.
+    Each module is expected to potentially have CLASS_NAME, MODULE_DESCRIPTION, and MODULE_ICON attributes.
 
-    :param directory: Path to the directory containing Python files.
-    :return: Dictionary where keys are module names and values are dicts with:
-             {
-                 'module': <module object>,
-                 'name': <CLASS_NAME or file name>,
-                 'description': <MODULE_DESCRIPTION or default>,
-                 'icon': <MODULE_ICON or empty string>
-             }
+    Args:
+        directory (str): Path to the directory containing Python files.
+
+    Returns:
+        dict: A dictionary where keys are module filenames (without .py extension)
+              and values are dictionaries containing:
+              - 'module': The imported module object.
+              - 'name': The CLASS_NAME attribute from the module, or the filename if not found.
+              - 'description': The MODULE_DESCRIPTION attribute, or a default string.
+              - 'icon': The MODULE_ICON attribute, or an empty string.
     """
     if not directory or not os.path.isdir(directory):
         print(f"Error: Invalid module directory: {directory}")
@@ -38,8 +65,7 @@ def loadAllModulesFromDirectory(directory):
 
     for fileName in getPythonFiles(directory):
         modulePath = os.path.join(directory, fileName)
-        moduleName = os.path.splitext(fileName)[0]
-
+        moduleName = os.path.splitext(fileName)[0] # Get module name without .py extension
 
         try:
             mod = importModuleFromPath(moduleName, modulePath)
@@ -57,16 +83,18 @@ def loadAllModulesFromDirectory(directory):
     return loadedModules
 
 
+
 def findHighestTrailingNumber(names, baseName):
     """
     Finds the highest numeric suffix following a given base name in a list of names.
+    Useful for generating unique names (e.g., 'object1', 'object2').
 
     Args:
         names (list[str]): List of names to inspect.
-        baseName (str): Base name prefix to search for.
+        baseName (str): Base name prefix to search for (e.g., 'object').
 
     Returns:
-        int: Highest numeric suffix found after the base name.
+        int: Highest numeric suffix found after the base name. Returns 0 if no suffix is found.
     """
 
     highestValue = 0
@@ -82,13 +110,15 @@ def findHighestTrailingNumber(names, baseName):
 
 def stripAllNamespaces(nodeName):
     """
-    Splits a Maya node name into its namespace and base name using the last colon.
+    Splits a Maya node name into its full namespace path and base name,
+    using the last colon as the separator.
 
     Args:
-        nodeName (str): Node name which may include namespace(s).
+        nodeName (str): Node name which may include namespace(s) (e.g., 'ns1:ns2:node').
 
     Returns:
-        list[str] or None: [namespace, baseName] if a namespace exists, otherwise None.
+        list[str] or None: A list containing [namespace_path, baseName] if a namespace exists,
+                           otherwise None.
     """
 
     if ':' not in str(nodeName):
@@ -98,15 +128,17 @@ def stripAllNamespaces(nodeName):
     return [namespace, baseName]
 
 
+
 def stripLeadingNamespace(nodeName):
     """
-    Splits a Maya node name into the first namespace and the rest of the name.
+    Splits a Maya node name into its first namespace and the rest of the name.
 
     Args:
-        nodeName (str): Node name that may include a namespace.
+        nodeName (str): Node name that may include a namespace (e.g., 'ns1:ns2:node').
 
     Returns:
-        list[str] or None: [namespace, baseName] if a namespace exists, otherwise None.
+        list[str] or None: A list containing [first_namespace, rest_of_name] if a namespace exists,
+                           otherwise None.
     """
     if ':' not in nodeName:
         return None
@@ -116,32 +148,17 @@ def stripLeadingNamespace(nodeName):
 
 
 def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = True, poleVectorObject = None, scaleCorrectionAttribute = None):
-    """
-    Creates a basic stretchy IK system between two joints, with optional container and pole vector.
-
-    Args:
-        rootJoint (str): Name of the root joint.
-        endJoint (str): Name of the end joint.
-        container (str, optional): Name of the container to add new nodes to.
-        lockMinimumLength (bool, optional): Reserved for stretch clamping (currently unused).
-        poleVectorObject (str, optional): An optional pole vector control object.
-        scaleCorrectionAttribute (str, optional): Reserved for scale correction (currently unused).
-
-    Returns:
-        dict: Dictionary of created nodes, useful for future references or constraints.
-    """
 
     containedNodes = []
 
     totalOriginalLength = 0.0
+    done = False
     parent = rootJoint
 
     childJoints = []
 
-    # Traverse joint chain to gather all joints and measure total original length
     while True:
-        children = cmds.listRelatives(parent, children = True)
-        children = cmds.ls(children, type = 'joint')
+        children = cmds.listRelatives(parent, children = True, type = 'joint')
 
         if not children:
             break
@@ -149,45 +166,39 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
         child = children[0]
         childJoints.append(child)
 
-        totalOriginalLength += cmds.getAttr(f'{child}.translateX')
-
-        parent = child
+        totalOriginalLength += abs(cmds.getAttr(f'{child}.translateX'))
 
         if child == endJoint:
             break
 
-    # Create IK handle and rename effector
-    ikNodes = cmds.ikHandle(startJoint = rootJoint, endEffector = endJoint, solver = 'ikRPsolver',
-                            name = f'{rootJoint}_ikHandle')
-    ikNodes[1] = cmds.rename(ikNodes[1], f'{rootJoint}_ikEffector')
+        parent = child
 
-    ikEffector = ikNodes[1]
+    ikNodes = cmds.ikHandle(startJoint = rootJoint, endEffector = endJoint, solver = 'ikRPsolver', name = f'{rootJoint}_ikHandle')
+    ikNodes[1] = cmds.rename(ikNodes[1], f'{rootJoint}_ikEffector')
     ikHandle = ikNodes[0]
+    ikEffector = ikNodes[1]
 
     cmds.setAttr(f'{ikHandle}.visibility', 0)
     containedNodes.extend(ikNodes)
 
-    # Create pole vector if none provided
     if not poleVectorObject:
         poleVectorObject = cmds.spaceLocator(name = f'{ikHandle}_poleVectorLocator')[0]
         containedNodes.append(poleVectorObject)
 
-        cmds.xform(poleVectorObject, worldSpace = True, absolute = True,
-                   translation = cmds.xform(rootJoint, query = True, worldSpace = True, translation = True))
-        cmds.xform(poleVectorObject, worldSpace = True, relative = True, translation = (0.0, 1.0, 0.0))
+        rootJointPos = cmds.xform(rootJoint, query = True, worldSpace = True, translation = True)
+        cmds.xform(poleVectorObject, worldSpace = True, absolute = True, translation = rootJointPos)
 
-        cmds.setAttr(f'{poleVectorObject}.visibility', 0)
+        cmds.xform(poleVectorObject, worldSpace = True, relative = True, translation = (0.0, 1.0, 0.0))
 
     poleVectorConstraint = cmds.poleVectorConstraint(poleVectorObject, ikHandle)[0]
     containedNodes.append(poleVectorConstraint)
 
-    # Create locators for measuring distance
     rootLocator = cmds.spaceLocator(name = f'{rootJoint}_rootPosLocator')[0]
     rootLocator_pointConstraint = cmds.pointConstraint(rootJoint, rootLocator, maintainOffset = False, name = f'{rootLocator}_pointConstraint')[0]
 
     endLocator = cmds.spaceLocator(name = f'{endJoint}_endPosLocator')[0]
-    cmds.xform(endLocator, worldSpace = True, absolute = True,
-               translation = cmds.xform(ikHandle, query = True, worldSpace = True, translation = True))
+    ikHandlePos = cmds.xform(ikHandle, query = True, worldSpace = True, translation = True)
+    cmds.xform(endLocator, worldSpace = True, absolute = True, translation = ikHandlePos)
     ikHandle_pointConstraint = cmds.pointConstraint(endLocator, ikHandle, maintainOffset = False, name = f'{ikHandle}_pointConstraint')[0]
 
     containedNodes.extend([rootLocator, endLocator, rootLocator_pointConstraint, ikHandle_pointConstraint])
@@ -195,30 +206,28 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
     cmds.setAttr(f'{rootLocator}.visibility', 0)
     cmds.setAttr(f'{endLocator}.visibility', 0)
 
-    # Setup distance measurement between locators
     rootLocatorWithoutNamespace = stripAllNamespaces(rootLocator)[1]
     endLocatorWithoutNamespace = stripAllNamespaces(endLocator)[1]
+
     moduleNamespace = stripAllNamespaces(rootJoint)[0]
 
     distNode = cmds.createNode('distanceBetween', name = f'{moduleNamespace}:distBetween_{rootLocatorWithoutNamespace}_{endLocatorWithoutNamespace}')
-
     containedNodes.append(distNode)
 
     cmds.connectAttr(f'{rootLocator}Shape.worldPosition[0]', f'{distNode}.point1')
     cmds.connectAttr(f'{endLocator}Shape.worldPosition[0]', f'{distNode}.point2')
+
     scaleAttr = f'{distNode}.distance'
 
-    # Divide distance by original length to get scale factor
     scaleFactor = cmds.createNode('multiplyDivide', name = f'{ikHandle}_scaleFactor')
     containedNodes.append(scaleFactor)
 
-    cmds.setAttr(f'{scaleFactor}.operation', 2)  # divide
+    cmds.setAttr(f'{scaleFactor}.operation', 2)
     cmds.connectAttr(scaleAttr, f'{scaleFactor}.input1X')
     cmds.setAttr(f'{scaleFactor}.input2X', totalOriginalLength)
 
     translationDriver = f'{scaleFactor}.outputX'
 
-    # Multiply original translateX by scale factor
     for joint in childJoints:
         multNode = cmds.createNode('multiplyDivide', name = f'{joint}_scaleMultiply')
         containedNodes.append(multNode)
@@ -227,9 +236,11 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
         cmds.connectAttr(translationDriver, f'{multNode}.input2X')
         cmds.connectAttr(f'{multNode}.outputX', f'{joint}.translateX')
 
-    # Optionally add all created nodes to the given container
+
+
+
     if container:
-        addNodeToContainer(container, containedNodes, includeHierarchyBelow = True)
+        addNodeToContainer(container = container, nodesIn = [containedNodes], includeHierarchyBelow = True)
 
     return {
         'ikHandle': ikHandle,
@@ -240,6 +251,114 @@ def basicStretchyIK(rootJoint, endJoint, container = None, lockMinimumLength = T
         'ikHandlePointConstraint': ikHandle_pointConstraint,
         'rootLocatorPointConstraint': rootLocator_pointConstraint
     }
+
+
+# totalOriginalLength = 0.0
+    # parent = rootJoint
+    #
+    # childJoints = []
+    #
+    # # Traverse joint chain to gather all joints and measure total original length
+    # while True:
+    #     children = cmds.listRelatives(parent, children = True)
+    #     children = cmds.ls(children, type = 'joint')
+    #
+    #     if not children:
+    #         break
+    #
+    #     child = children[0]
+    #     childJoints.append(child)
+    #
+    #     totalOriginalLength += cmds.getAttr(f'{child}.translateX')
+    #
+    #     parent = child
+    #
+    #     if child == endJoint:
+    #         break
+    #
+    # # Create IK handle and rename effector
+    # ikNodes = cmds.ikHandle(startJoint = rootJoint, endEffector = endJoint, solver = 'ikRPsolver',
+    #                         name = f'{rootJoint}_ikHandle')
+    # ikNodes[1] = cmds.rename(ikNodes[1], f'{rootJoint}_ikEffector')
+    #
+    # ikEffector = ikNodes[1]
+    # ikHandle = ikNodes[0]
+    #
+    # cmds.setAttr(f'{ikHandle}.visibility', 0)
+    # containedNodes.extend(ikNodes)
+    #
+    # # Create pole vector if none provided
+    # if not poleVectorObject:
+    #     poleVectorObject = cmds.spaceLocator(name = f'{ikHandle}_poleVectorLocator')[0]
+    #     containedNodes.append(poleVectorObject)
+    #
+    #     cmds.xform(poleVectorObject, worldSpace = True, absolute = True, translation = cmds.xform(rootJoint, query = True, worldSpace = True, translation = True))
+    #     cmds.xform(poleVectorObject, worldSpace = True, relative = True, translation = (0.0, 1.0, 0.0))
+    #
+    #     cmds.setAttr(f'{poleVectorObject}.visibility', 0)
+    #
+    # poleVectorConstraint = cmds.poleVectorConstraint(poleVectorObject, ikHandle)[0]
+    # containedNodes.append(poleVectorConstraint)
+    #
+    # # Create locators for measuring distance
+    # rootLocator = cmds.spaceLocator(name = f'{rootJoint}_rootPosLocator')[0]
+    # rootLocator_pointConstraint = cmds.pointConstraint(rootJoint, rootLocator, maintainOffset = False, name = f'{rootLocator}_pointConstraint')[0]
+    #
+    # endLocator = cmds.spaceLocator(name = f'{endJoint}_endPosLocator')[0]
+    # cmds.xform(endLocator, worldSpace = True, absolute = True,
+    #            translation = cmds.xform(ikHandle, query = True, worldSpace = True, translation = True))
+    # ikHandle_pointConstraint = cmds.pointConstraint(endLocator, ikHandle, maintainOffset = False, name = f'{ikHandle}_pointConstraint')[0]
+    #
+    # containedNodes.extend([rootLocator, endLocator, rootLocator_pointConstraint, ikHandle_pointConstraint])
+    #
+    # cmds.setAttr(f'{rootLocator}.visibility', 0)
+    # cmds.setAttr(f'{endLocator}.visibility', 0)
+    #
+    # # Setup distance measurement between locators
+    # rootLocatorWithoutNamespace = stripAllNamespaces(rootLocator)[1]
+    # endLocatorWithoutNamespace = stripAllNamespaces(endLocator)[1]
+    # moduleNamespace = stripAllNamespaces(rootJoint)[0]
+    #
+    # distNode = cmds.createNode('distanceBetween', name = f'{moduleNamespace}:distBetween_{rootLocatorWithoutNamespace}_{endLocatorWithoutNamespace}')
+    #
+    # containedNodes.append(distNode)
+    #
+    # cmds.connectAttr(f'{rootLocator}Shape.worldPosition[0]', f'{distNode}.point1')
+    # cmds.connectAttr(f'{endLocator}Shape.worldPosition[0]', f'{distNode}.point2')
+    # scaleAttr = f'{distNode}.distance'
+    #
+    # # Divide distance by original length to get scale factor
+    # scaleFactor = cmds.createNode('multiplyDivide', name = f'{ikHandle}_scaleFactor')
+    # containedNodes.append(scaleFactor)
+    #
+    # cmds.setAttr(f'{scaleFactor}.operation', 2)  # divide
+    # cmds.connectAttr(scaleAttr, f'{scaleFactor}.input1X')
+    # cmds.setAttr(f'{scaleFactor}.input2X', totalOriginalLength)
+    #
+    # translationDriver = f'{scaleFactor}.outputX'
+    #
+    # # Multiply original translateX by scale factor
+    # for joint in childJoints:
+    #     multNode = cmds.createNode('multiplyDivide', name = f'{joint}_scaleMultiply')
+    #     containedNodes.append(multNode)
+    #
+    #     cmds.setAttr(f'{multNode}.input1X', cmds.getAttr(f'{joint}.translateX'))
+    #     cmds.connectAttr(translationDriver, f'{multNode}.input2X')
+    #     cmds.connectAttr(f'{multNode}.outputX', f'{joint}.translateX')
+    #
+    # # Optionally add all created nodes to the given container
+    # if container:
+    #     addNodeToContainer(container, containedNodes, includeHierarchyBelow = True)
+    #
+    # return {
+    #     'ikHandle': ikHandle,
+    #     'ikEffector': ikEffector,
+    #     'rootLocator': rootLocator,
+    #     'endLocator': endLocator,
+    #     'poleVectorObject': poleVectorObject,
+    #     'ikHandlePointConstraint': ikHandle_pointConstraint,
+    #     'rootLocatorPointConstraint': rootLocator_pointConstraint
+    # }
 
 
 def forceSceneUpdate():
@@ -260,106 +379,172 @@ def forceSceneUpdate():
 
 def addNodeToContainer(container, nodesIn, includeHierarchyBelow = False, includeShapes = True, includeShaders = True, force = False):
     """
-    Adds specified nodes to a Maya container, optionally including hierarchy or shapes.
+    Adds specified nodes to a Maya container.
 
     Args:
-        container (str): The name of the container node.
-        nodesIn (list or str): Node(s) to add to the container.
-        includeHierarchyBelow (bool): Include entire node hierarchies below the specified nodes.
-        includeShapes (bool): Include shape nodes.
-        includeShaders (bool): Include shader nodes.
-        force (bool): Force addition even if some nodes are already in the container.
+        container (str): The name of the container node to add nodes to.
+        nodesIn (list or str): A single node name or a list of node names to add.
+        includeHierarchyBelow (bool): If True, includes the entire hierarchy below the specified nodes.
+        includeShapes (bool): If True, includes shape nodes associated with the specified nodes.
+        includeShaders (bool): If True, includes shader nodes connected to the specified nodes.
+        force (bool): If True, forces the addition even if some nodes are already in the container.
     """
 
-    if isinstance(nodesIn, list):
-        nodes = list(nodesIn)
+    # Ensure nodesIn is a list for consistent processing
+    nodes = nodesIn if isinstance(nodesIn, list) else [nodesIn]
 
-    else:
+    def flatten(inputList):
+        """Flattens a nested list to a single list of strings (non-recursive)."""
+        result = []
+        for item in inputList:
+            if isinstance(item, list):
+                result.extend(item)
+            else:
+                result.append(item)
+        return result
+
+    if isinstance(nodesIn, str):
         nodes = [nodesIn]
+    elif isinstance(nodesIn, list):
+        nodes = flatten(nodesIn)
+    else:
+        raise TypeError("nodesIn must be a string or a list of strings.")
 
-    # Add any connected unitConversion nodes
-    # conversionNodes = []
-    # for node in nodes:
-    #     node_conversionNodes = cmds.listConnections(node, source = True, destination = True, type = 'unitConversion')
-    #
-    # nodes.extend(conversionNodes)
-    cmds.container(container, edit = True, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShapes = includeShapes, includeShaders = True, force = force)
+    conversionNodes = []
+
+    for node in nodes:
+        node_conversionNodes = cmds.listConnections(node, source = True, destination = True)
+        node_conversionNodes = cmds.ls(node_conversionNodes, type = 'unitConversion')
+
+        conversionNodes.extend(node_conversionNodes)
+
+    nodes.extend(conversionNodes)
+
+    cmds.container(container,
+                   edit = True,
+                   addNode = nodes,
+                   includeHierarchyBelow = includeHierarchyBelow,
+                   includeShapes = includeShapes,
+                   includeShaders = includeShaders,
+                   force = force)
 
 def createContainer(name, nodesIn = None, includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True, force = True):
-    if nodesIn is None:
-        nodesIn = []
+    """
+    Creates a new Maya container node and optionally adds specified nodes to it.
+    Also renames the associated hyperLayout node for clarity.
 
-    if isinstance(nodesIn, list):
-        nodes = list(nodesIn)
+    Args:
+        name (str): The desired name for the new container node.
+        nodesIn (list or str, optional): A single node name or a list of node names to add initially.
+                                         Defaults to None (empty container).
+        includeHierarchyBelow (bool): If True, includes the entire hierarchy below the specified nodes.
+        includeShaders (bool): If True, includes shader nodes connected to the specified nodes.
+        includeTransform (bool): If True, includes transform nodes.
+        includeShapes (bool): If True, includes shape nodes.
+        force (bool): If True, forces the creation/addition.
 
-    else:
-        nodes = [nodesIn]
+    Returns:
+        str: The name of the newly created container node.
+    """
+    # Ensure nodesIn is a list for consistent processing
+    nodes = nodesIn if isinstance(nodesIn, list) else [nodesIn] if nodesIn else []
 
-    container = cmds.container(name = name, addNode = nodes, includeHierarchyBelow = includeHierarchyBelow, includeShaders = includeShaders, includeTransform = includeTransform, includeShapes = includeShapes, force = force)
+    # Create the container and add initial nodes
+    container = cmds.container(name = name,
+                               addNode = nodes,
+                               includeHierarchyBelow = includeHierarchyBelow,
+                               includeShaders = includeShaders,
+                               includeTransform = includeTransform,
+                               includeShapes = includeShapes,
+                               force = force)
+
+    # Find and rename the associated hyperLayout node for better organization
     hyperLayout = cmds.listConnections(container, type = 'hyperLayout')
-    hyperLayout = cmds.rename(hyperLayout, f'{name}_hyperLayout')
+    if hyperLayout: # Check if hyperLayout exists (it usually does)
+        cmds.rename(hyperLayout[0], f'{name}_hyperLayout') # hyperLayout returns a list
 
     return container
 
 def assignMaterial(obj, color = (1, 0, 0), diffuse = 0.2):
     """
-    Creates a Lambert material, assigns it to the given object,
-    and returns both the material and its materialInfo node.
+    Creates a Lambert material with specified color and diffuse properties,
+    assigns it to the given Maya object, and returns the material and its materialInfo node.
+    If a material with the generated name already exists, it will be reused.
 
     Args:
-        obj (str): The name of the object to assign the material to.
-        materialName (str): The name of the material to create.
-        color (tuple): RGB values for the diffuse color.
-        diffuse (float): Diffuse intensity (0–1 range).
+        obj (str): The name of the object (e.g., a transform node) to assign the material to.
+        color (tuple): A tuple (R, G, B) representing the diffuse color (values from 0 to 1).
+                       Defaults to red (1, 0, 0).
+        diffuse (float): The diffuse intensity of the material (value from 0 to 1).
+                         Defaults to 0.2.
 
     Returns:
-        tuple: (materialNode, materialInfoNode)
+        list: A list containing [materialNode (str), materialInfoNode (str)].
     """
+    # Generate a material name based on the object name
+    # If obj is namespaced, the material will also be namespaced, which is fine for modularity.
     materialName = f'{obj}_m'
 
-    # Create material
+    # Create material if it doesn't exist, otherwise reuse existing
     if not cmds.objExists(materialName):
         material = cmds.shadingNode("lambert", asShader = True, name = materialName)
     else:
-        material = materialName
+        material = materialName # Use the existing material
 
-    # Set color and diffuse
+    # Set color and diffuse attributes
     cmds.setAttr(f"{material}.color", *color, type = "double3")
     cmds.setAttr(f"{material}.diffuse", diffuse)
 
-    # Create shading group
+    # Create a shading group for the material
     shadingGroup = cmds.sets(renderable = True, noSurfaceShader = True, empty = True, name = f"{material}SG")
+    # Connect the material's outColor to the shading group's surfaceShader
     cmds.connectAttr(f"{material}.outColor", f"{shadingGroup}.surfaceShader", force = True)
 
-    # Assign material to object
+    # Assign the material to the specified object
     cmds.sets(obj, edit = True, forceElement = shadingGroup)
 
-    # Return the materialInfo node if connected
+    # Find and rename the associated materialInfo node for clarity
     materialInfo = cmds.listConnections(material, type = "materialInfo")
-    materialInfoNode = materialInfo[0] if materialInfo else None
-    materialInfoNode = cmds.rename(materialInfoNode, f'{obj}_mInfo')
+    materialInfoNode = materialInfo[0] if materialInfo else None # Get the first materialInfo node
+    if materialInfoNode:
+        materialInfoNode = cmds.rename(materialInfoNode, f'{obj}_mInfo')
 
     return [material, materialInfoNode]
 
 
 def createTranslationControl(name):
     """
-    Creates a translation control as a red sphere, assigns a material, and adds it to a container.
+    Creates a standard translation control (a red sphere) with an assigned material
+    and places it within its own container. This function assumes it is called
+    within the desired Maya namespace.
 
     Args:
-        name (str): Name of the control object (sphere).
+        name (str): The base name for the control and its container.
+                    This name will be used to form unique names like
+                    '{name}_translation_control' and '{name}_translation_container'.
 
     Returns:
-        tuple: (controlObject, materialNode, materialInfoNode, containerNode)
+        list: A list containing [container (str), control (str)].
     """
-    # Create control sphere
+    # CRITICAL FIX: Removed cmds.namespace(setNamespace = ':')
+    # This function should operate within the current active namespace set by the caller (e.g., Blueprint.install).
+    # Changing the namespace here would break the intended naming structure.
+
+    # Create the control geometry (a sphere)
+    # The name will be formed using the 'name' argument, which should already include the namespace
+    # if called from a namespaced context (e.g., 'moduleNamespace:jointName').
     control = cmds.sphere(name = f'{name}_translation_control', ax = (0, 1, 0), ch = False)[0]
 
-    # Assign red material
+    # Assign a red material to the control
     material, materialInfo = assignMaterial(control, color = (1, 0, 0))
 
-    # Create container and add nodes
-    container = createContainer(name = f'{name}_translation_container', nodesIn = [control, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
+    # Create a container for the control and its associated nodes (material, materialInfo)
+    # The container name will also be formed using the 'name' argument.
+    container = createContainer(name = f'{name}_translation_container',
+                                nodesIn = [control, material, materialInfo],
+                                includeHierarchyBelow = True,
+                                includeShaders = True,
+                                includeTransform = True,
                                 includeShapes = True)
 
     return [container, control]

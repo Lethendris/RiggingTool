@@ -9,6 +9,8 @@ module-specific logic.
 """
 
 import os
+from operator import contains
+
 import maya.cmds as cmds
 from PySide6 import QtCore, QtWidgets
 import System.utils as utils
@@ -18,25 +20,8 @@ importlib.reload(utils)  # Reload the utils module to ensure the latest version 
 
 
 class Blueprint:
-    """
-    The base class for all rigging blueprint modules.
-
-    This class provides the fundamental structure and methods for a rigging module,
-    including initialization, UI integration, and the two-phase installation process
-    (lockPhase1 and lockPhase2).
-
-    Attributes:
-        moduleName (str): The base name of the module (e.g., 'arm', 'leg').
-        userSpecifiedName (str): A unique name given by the user for this instance of the module.
-        jointInfo (list): A list of tuples, where each tuple contains (joint_name, joint_position).
-        moduleNamespace (str): The unique namespace for this module instance in Maya (e.g., 'arm__instance_1').
-        containerName (str): The name of the main container node for this module in Maya.
-        hookObject (str): The name of the object in Maya to which this module should be hooked.
-
-    """
 
     def __init__(self, moduleName, userSpecifiedName, jointInfo, hookObjectIn):
-
         """
         Initializes a new instance of the Blueprint module.
 
@@ -48,11 +33,20 @@ class Blueprint:
                                 This is typically a translation control from another module.
         """
 
+        # Module Identification Attributes
         self.moduleName = moduleName
         self.userSpecifiedName = userSpecifiedName
-        self.jointInfo = jointInfo
-        self.moduleNamespace = f'{self.moduleName}__{self.userSpecifiedName}'  # Construct the unique namespace for this module instance.
-        self.containerName = f'{self.moduleNamespace}:module_container'  # Construct the name for the main container node.
+        self.moduleNamespace = f'{self.moduleName}__{self.userSpecifiedName}'  # Unique namespace for this module instance.
+
+        # Data for Module Creation
+        self.jointInfo = jointInfo  # List of (joint_name, joint_position) tuples
+
+        # Maya Object References (initialized to None/empty list, populated by install method)
+        self.containerName = None  # Main container node.
+        self.moduleGrp = None  # Top-level group for the module
+        self.jointsGrp = None  # Group for joints
+        self.joints = None  # Module joints
+
         self.hookObject = None
 
         # Determine if the provided hookObjectIn is a valid translation control.
@@ -340,146 +334,188 @@ class Blueprint:
 
     # BASE CLASS METHODS
     def install(self):
-        """
-        Installs the blueprint module in the Maya scene.
 
-        This method creates the necessary groups, joints, controls, and sets up
-        connections for the module. It also calls `install_custom` for derived-class
-        specific installation logic.
-        """
+        # Ensure we are in the root namespace before creating the module's namespace
+        cmds.namespace(setNamespace = ':')
+        cmds.namespace(addNamespace = self.moduleNamespace)
 
-        # Create groups to organize joints and visual representation.
+        # Subgroups for different types of nodes
         self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:joints_grp')
-        self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:hierarchyConnectors_grp')
-        self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:orientationConnectors_grp')
-        self.moduleGrp = cmds.group([self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp], name = f'{self.moduleNamespace}:module_grp')
+        self.moduleGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:module_grp')
 
-        utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)  # Create a container and include the hierarchy.
+        # Parent subgroups under the main module group
+        cmds.parent(self.jointsGrp, self.moduleGrp, absolute = True)
 
+        # Create the main container for the module
+        # Pass the top-level module group to the container
+        self.containerName = utils.createContainer(f'{self.moduleNamespace}:module_container', nodesIn = [self.moduleGrp], includeHierarchyBelow = True)
         cmds.select(clear = True)
 
-        joints = []  # Create joints as defined in self.jointInfo.
+        # List to store the full names of created joints
+        joints = []
+        for index, joint in enumerate(self.jointInfo):
+            jointName = joint[0]  # ex: 'root_joint', 'end_joint'
+            jointPos = joint[1]  # ex: [4.0, 0.0, 0.0]
 
-        for index, (jointName, jointPos) in enumerate(self.jointInfo):
-            parentName = ''
+            parentJoint = ''
 
+            # Determine parent for the current joint
             if index > 0:
-                parentName = f'{self.moduleNamespace}:{self.jointInfo[index - 1][0]}'
-                cmds.select(parentName, replace = True)
+                # The parent is the previously created joint in the list
+                parentJoint = f'{self.moduleNamespace}:{self.jointInfo[index - 1][0]}'
+                cmds.select(parentJoint, replace = True)
 
-            jointName_full = cmds.joint(name = f'{self.moduleNamespace}:{jointName}', position = jointPos)
+            # Create the joint
+            jointName_full = cmds.joint(name = f'{self.moduleNamespace}:{jointName}', position = jointPos)  # example: ModuleName__UserSpecifiedName:JointName
             joints.append(jointName_full)
 
-            cmds.setAttr(f'{jointName_full}.visibility', 0)  # Hide joint from view.
+            # Add joint to the module's container
+            utils.addNodeToContainer(container = self.containerName, nodesIn = [jointName_full])
 
-            utils.addNodeToContainer(self.containerName, jointName_full)  # Add joint to the module container.
+            # Publish joint attributes to the container for external access
+            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_Rotate'))
+            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_RotateOrder'))
 
-            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_R'))  # Publish joint rotate and rotateOrder attributes to the container.
-            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_rotateOrder'))
+            # Orient the parent joint towards its child
+            if index > 0:
+                cmds.joint(parentJoint, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
 
-            if index > 0:  # Orient the joint properly if it's not the first one.
-                cmds.joint(parentName, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
+        # Parent the root joint (first joint created) under the joints group
+        cmds.parent(joints[0], self.jointsGrp, absolute = True)
 
-        if self.mirrored:
-            mirrorXY = self.mirrorPlane == 'XY'
-            mirrorYZ = self.mirrorPlane == 'YZ'
-            mirrorXZ = self.mirrorPlane == 'XZ'
-            mirrorBehavior = self.rotationFunction == 'Behavior'
-
-            mirroredNodes = cmds.mirrorJoint(joints[0], mirrorXY = mirrorXY, mirrorYZ = mirrorYZ, mirrorXZ = mirrorXZ, mirrorBehavior = mirrorBehavior)
-
-            cmds.delete(joints)
-
-            mirroredJoints = []
-
-            for node in mirroredNodes:
-                if cmds.objectType(node, isType = 'joint'):
-                    mirroredJoints.append(node)
-
-                else:
-                    cmds.delete(node)
-
-            for index, joint in enumerate(mirroredJoints):
-                jointName = self.jointInfo[index][0]
-                newJointName = cmds.rename(joint, f'{self.moduleNamespace}:{jointName}')
-
-                self.jointInfo[index][1] = cmds.xform(newJointName, query = True, worldSpace = True, translation = True)
-
-        cmds.parent(joints[0], self.jointsGrp, absolute = True)  # Parent the root joint to the joints group.
-
-        self.initializeModuleTransform(self.jointInfo[0][1])  # Initialize the module's main transform.
-
-        translationControls = []  # Create translation controls at each joint.
+        translationControls = []
 
         for joint in joints:
             translationControls.append(self.createTranslationControlAtJoint(joint))
 
-        rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')  # Constrain the root joint to its translation control.
+        rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
+        utils.addNodeToContainer(container = self.containerName, nodesIn = [rootJoint_pointConstraint])
 
-        utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
+        for index in range(len(joints) - 1):
+            self.setupStretchyJointSegment(parentJoint = joints[index], childJoint = joints[index + 1])
 
-        self.initializeHook(translationControls[0])  # Initialize the hook object if one was provided.
+        # Store the list of created joints as an instance attribute for other methods
+        self.joints = joints
 
-        for index in range(len(joints) - 1):  # Create stretchy segments between each joint pair.
-            self.setupStretchyJointSegment(connectorType = 'orientation', parentJoint = joints[index], childJoint = joints[index + 1])
+        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
 
-        self.install_custom(joints)  # Call custom installation logic from derived classes.
-
-
-        utils.forceSceneUpdate()
-        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)  # Lock the container to prevent accidental edits.
-
-
+        # self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:hierarchyConnectors_grp')
+        # self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:orientationConnectors_grp')
+        # self.moduleGrp = cmds.group([self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp], name = f'{self.moduleNamespace}:module_grp')
+        #
+        # utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)  # Create a container and include the hierarchy.
+        #
+        # cmds.select(clear = True)
+        #
+        # joints = []  # Create joints as defined in self.jointInfo.
+        #
+        # for index, (jointName, jointPos) in enumerate(self.jointInfo):
+        #     parentName = ''
+        #
+        #     if index > 0:
+        #         parentName = f'{self.moduleNamespace}:{self.jointInfo[index - 1][0]}'
+        #         cmds.select(parentName, replace = True)
+        #
+        #     jointName_full = cmds.joint(name = f'{self.moduleNamespace}:{jointName}', position = jointPos)
+        #     joints.append(jointName_full)
+        #
+        #     cmds.setAttr(f'{jointName_full}.visibility', 1)  # Hide joint from view.
+        #
+        #     utils.addNodeToContainer(self.containerName, jointName_full)  # Add joint to the module container.
+        #
+        #     cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_R'))  # Publish joint rotate and rotateOrder attributes to the container.
+        #     cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_rotateOrder'))
+        #
+        #     if index > 0:  # Orient the joint properly if it's not the first one.
+        #         cmds.joint(parentName, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
+        #
+        # if self.mirrored:
+        #     mirrorXY = self.mirrorPlane == 'XY'
+        #     mirrorYZ = self.mirrorPlane == 'YZ'
+        #     mirrorXZ = self.mirrorPlane == 'XZ'
+        #     mirrorBehavior = self.rotationFunction == 'Behavior'
+        #
+        #     mirroredNodes = cmds.mirrorJoint(joints[0], mirrorXY = mirrorXY, mirrorYZ = mirrorYZ, mirrorXZ = mirrorXZ, mirrorBehavior = mirrorBehavior)
+        #
+        #     cmds.delete(joints)
+        #
+        #     mirroredJoints = []
+        #
+        #     for node in mirroredNodes:
+        #         if cmds.objectType(node, isType = 'joint'):
+        #             mirroredJoints.append(node)
+        #
+        #         else:
+        #             cmds.delete(node)
+        #
+        #     for index, joint in enumerate(mirroredJoints):
+        #         jointName = self.jointInfo[index][0]
+        #         newJointName = cmds.rename(joint, f'{self.moduleNamespace}:{jointName}')
+        #
+        #         self.jointInfo[index][1] = cmds.xform(newJointName, query = True, worldSpace = True, translation = True)
+        #
+        # cmds.parent(joints[0], self.jointsGrp, absolute = True)  # Parent the root joint to the joints group.
+        #
+        # self.initializeModuleTransform(self.jointInfo[0][1])  # Initialize the module's main transform.
+        #
+        # translationControls = []  # Create translation controls at each joint.
+        #
+        # for joint in joints:
+        #     translationControls.append(self.createTranslationControlAtJoint(joint))
+        #
+        # rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')  # Constrain the root joint to its translation control.
+        #
+        # utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
+        #
+        # self.initializeHook(translationControls[0])  # Initialize the hook object if one was provided.
+        #
+        # for index in range(len(joints) - 1):  # Create stretchy segments between each joint pair.
+        #     self.setupStretchyJointSegment(connectorType = 'orientation', parentJoint = joints[index], childJoint = joints[index + 1])
+        #
+        # self.install_custom(joints)  # Call custom installation logic from derived classes.
+        #
+        #
+        # utils.forceSceneUpdate()
+        # cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)  # Lock the container to prevent accidental edits.
 
     def createTranslationControlAtJoint(self, joint):
         """
-        Creates a translation control object at the specified joint's position.
-
+        Creates a translation control (sphere) at the specified joint's position,
+        adds it to the module's main container, and publishes its translate attribute.
         Args:
-            joint (str): The name of the joint to attach a control to.
+            joint (str): name of the joint where the translation control should be created.
 
         Returns:
-            str: The name of the created translation control object.
+            str: name of the created translation control object.
         """
-        container, control = utils.createTranslationControl(name = joint)  # Create the translation control using a utility function.
 
-        utils.addNodeToContainer(self.containerName, container)  # Add the control's container to the module's main container.
+        container, control = utils.createTranslationControl(joint)
+        utils.addNodeToContainer(container = self.containerName, nodesIn = [container])
 
-        cmds.parent(control, self.moduleTransform, absolute = True)  # Parent the control under the module's main transform.
-        cmds.scaleConstraint(self.moduleTransform, control, maintainOffset = False)
+        jointPosition = cmds.xform(joint, query = True, worldSpace = True, translation = True)
+        cmds.xform(control, worldSpace = True, absolute = True, translation = jointPosition)
 
-        jointPos = cmds.xform(joint, query = True, worldSpace = True, translation = True)  # Move the control to match the joint's world position.
-        cmds.xform(control, worldSpace = True, absolute = True, translation = jointPos)
-
-        niceName = utils.stripLeadingNamespace(joint)[1]  # Publish the translation attribute of the control to its container.
-        attrName = f'{niceName}_T'
+        shortName = utils.stripLeadingNamespace(joint)[1]
+        attrName = f'{shortName}_Translate'
 
         cmds.container(container, edit = True, publishAndBind = (f'{control}.translate', attrName))
-        cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))  # Publish the control's container to the module's main container.
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
 
         return control
 
-    def getTranslationControl(self, jointName):
+    def getTranslationControl(self, joint):
 
-        return f'{jointName}_translation_control'
+        return f'{joint}_translation_control'
 
     def getOrientationControl(self, jointName):
 
         return f'{jointName}_orientation_connector'
 
-    def setupStretchyJointSegment(self, connectorType, parentJoint, childJoint):
-        """
-        Set up a stretchy IK segment between a parent and child joint.
-
-        Args:
-            parentJoint (str): Start joint.
-            childJoint (str): End joint.
-        """
+    def setupStretchyJointSegment(self, parentJoint, childJoint):
 
         parentTranslationControl = self.getTranslationControl(parentJoint)
         childTranslationControl = self.getTranslationControl(childJoint)
 
-        # Create a locator for the pole vector control and constrain it.
         poleVectorLocator = cmds.spaceLocator(name = f'{parentTranslationControl}_poleVectorLocator')[0]
         poleVectorLocatorGrp = cmds.group(poleVectorLocator, name = f'{poleVectorLocator}_parentConstraintGrp')
 
@@ -487,31 +523,60 @@ class Blueprint:
         parentConstraint = cmds.parentConstraint(parentTranslationControl, poleVectorLocatorGrp, maintainOffset = False)[0]
 
         cmds.setAttr(f'{poleVectorLocator}.visibility', 0)
-        cmds.setAttr(f'{poleVectorLocator}.ty', -0.5)
+        cmds.setAttr(f'{poleVectorLocator}.translateY', -0.5)
 
-        self.createConnector(connectorType = connectorType, name = parentJoint, parentJoint = parentJoint, childJoint = childJoint)
-
-        # Setup stretchy IK using utility function.
-        ikNodes = utils.basicStretchyIK(rootJoint = parentJoint, endJoint = childJoint, container = self.containerName, lockMinimumLength = False, poleVectorObject = poleVectorLocator,
-                                        scaleCorrectionAttribute = None)
-
+        ikNodes = utils.basicStretchyIK(rootJoint = parentJoint, endJoint = childJoint, container = self.containerName, lockMinimumLength = False, poleVectorObject = poleVectorLocator, scaleCorrectionAttribute = None)
         ikHandle = ikNodes['ikHandle']
         rootLocator = ikNodes['rootLocator']
         endLocator = ikNodes['endLocator']
 
-        if self.mirrored:
-            if self.mirrorPlane == 'XZ':
-                cmds.setAttr(f'{ikHandle}.twist', 90)
-
-        # Constrain end locator to translation control.
         childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset = False, name = f'{endLocator}_pointConstraint')[0]
+        utils.addNodeToContainer(container = self.containerName, nodesIn = [poleVectorLocatorGrp, parentConstraint, childPointConstraint], includeHierarchyBelow = True)
 
-        utils.addNodeToContainer(self.containerName, [poleVectorLocatorGrp, parentConstraint, childPointConstraint], includeHierarchyBelow = True)
-
-        # Hide and parent IK nodes.
         for node in [ikHandle, rootLocator, endLocator]:
             cmds.parent(node, self.jointsGrp, absolute = True)
             cmds.setAttr(f'{node}.visibility', 0)
+
+
+
+
+
+        # parentTranslationControl = self.getTranslationControl(parentJoint)
+        # childTranslationControl = self.getTranslationControl(childJoint)
+        #
+        # # Create a locator for the pole vector control and constrain it.
+        # poleVectorLocator = cmds.spaceLocator(name = f'{parentTranslationControl}_poleVectorLocator')[0]
+        # poleVectorLocatorGrp = cmds.group(poleVectorLocator, name = f'{poleVectorLocator}_parentConstraintGrp')
+        #
+        # cmds.parent(poleVectorLocatorGrp, self.moduleGrp, absolute = True)
+        # parentConstraint = cmds.parentConstraint(parentTranslationControl, poleVectorLocatorGrp, maintainOffset = False)[0]
+        #
+        # cmds.setAttr(f'{poleVectorLocator}.visibility', 1)
+        # cmds.setAttr(f'{poleVectorLocator}.ty', -0.5)
+        #
+        # self.createConnector(connectorType = connectorType, name = parentJoint, parentJoint = parentJoint, childJoint = childJoint)
+        #
+        # # Setup stretchy IK using utility function.
+        # ikNodes = utils.basicStretchyIK(rootJoint = parentJoint, endJoint = childJoint, container = self.containerName, lockMinimumLength = False, poleVectorObject = poleVectorLocator,
+        #                                 scaleCorrectionAttribute = None)
+        #
+        # ikHandle = ikNodes['ikHandle']
+        # rootLocator = ikNodes['rootLocator']
+        # endLocator = ikNodes['endLocator']
+        #
+        # if self.mirrored:
+        #     if self.mirrorPlane == 'XZ':
+        #         cmds.setAttr(f'{ikHandle}.twist', 90)
+        #
+        # # Constrain end locator to translation control.
+        # childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset = False, name = f'{endLocator}_pointConstraint')[0]
+        #
+        # utils.addNodeToContainer(self.containerName, [poleVectorLocatorGrp, parentConstraint, childPointConstraint], includeHierarchyBelow = True)
+        #
+        # # Hide and parent IK nodes.
+        # for node in [ikHandle, rootLocator, endLocator]:
+        #     cmds.parent(node, self.jointsGrp, absolute = True)
+        #     cmds.setAttr(f'{node}.visibility', 1)
 
     def initializeModuleTransform(self, position):
         """
@@ -543,6 +608,8 @@ class Blueprint:
                 scaleAttr = 'scaleZ'
 
             cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
+
+            # cmds.setAttr(f'{self.orientationConnectorsGrp}.{scaleAttr}', -1)
 
             parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
             cmds.delete(parentConstraint)
@@ -589,7 +656,7 @@ class Blueprint:
 
         if connectorType == 'orientation':
             container, connector = utils.createOrientationConnector(name)
-            parentGrp = self.orientationConnectorsGrp
+            parentGrp = self.moduleTransform
 
         elif connectorType == 'hierarchy':
             container, connector = utils.createHierarchyConnector(name)
@@ -936,9 +1003,9 @@ class Blueprint:
         self.mirrored = True
         self.originalModule = originalModule
         self.mirrorPlane = mirrorPlane
-        self.rotationFunction = rotationFunction
+        self.rotationFunction = rotationFunction  # This will be 'Behavior' or 'Orientation' from UI
 
-        self.install()
+        self.install()  # This creates the new module and its controls
 
         cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)
 
@@ -996,6 +1063,42 @@ class Blueprint:
 
                 cmds.xform(newPoleVectorLocator, worldSpace = True, absolute = True, translation = originalPoleVectorLocatorPosition)
 
+            if mirrorOrientationConnector:
+                # --- RE-INTRODUCED AND MODIFIED CODE FOR ORIENTATION CONTROL MIRRORING ---
+                originalOrientationControl = self.getOrientationControl(originalJoint)
+                newOrientationControl = self.getOrientationControl(newJoint)
+
+                # Get world space rotation of the original orientation control
+                originalRotation = cmds.xform(originalOrientationControl, query = True, worldSpace = True, rotation = True)
+
+                # Apply mirroring logic to the rotation
+                mirroredRotation = list(originalRotation)  # Convert to list to modify
+
+                if self.mirrorPlane == 'YZ':  # Mirroring across X-axis (YZ plane)
+                    # To flip both Y and Z axes, you typically flip X and Y rotations.
+                    # The exact combination can sometimes be tricky due to Euler order.
+                    # For a YZ plane mirror, X-axis is the normal.
+                    # Flipping X and Y rotations often achieves the desired "behavioral" mirror.
+                    mirroredRotation[0] *= -1  # Flip X rotation
+                    mirroredRotation[1] *= -1  # Flip Y rotation
+                    # Z rotation usually stays the same for a YZ plane mirror,
+                    # but if you specifically want Z to flip, you'd add:
+                    # mirroredRotation[2] *= -1
+
+                elif self.mirrorPlane == 'XZ':  # Mirroring across Y-axis (XZ plane)
+                    # Flip X and Z rotations
+                    mirroredRotation[0] *= -1
+                    mirroredRotation[2] *= -1
+
+                elif self.mirrorPlane == 'XY':  # Mirroring across Z-axis (XY plane)
+                    # Flip X and Y rotations
+                    mirroredRotation[0] *= -1
+                    mirroredRotation[1] *= -1
+
+                # Apply the mirrored rotation to the new orientation control
+                cmds.xform(newOrientationControl, worldSpace = True, absolute = True, rotation = mirroredRotation)
+                # --- END MODIFIED CODE ---
+
             index += 1
 
-
+        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
