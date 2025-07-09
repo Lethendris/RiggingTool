@@ -377,6 +377,7 @@ class Blueprint:
             # Create the joint
             jointName_full = cmds.joint(name = f'{self.moduleNamespace}:{jointName}', position = jointPos)  # example: ModuleName__UserSpecifiedName:JointName
             joints.append(jointName_full)
+            cmds.setAttr(f'{jointName_full}.visibility', 0)
 
             # Add joint to the module's container
             utils.addNodeToContainer(container = self.containerName, nodesIn = [jointName_full])
@@ -388,6 +389,33 @@ class Blueprint:
             # Orient the parent joint towards its child
             if index > 0:
                 cmds.joint(parentJoint, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
+
+        if self.mirrored:
+            mirrorXY = self.mirrorPlane == 'XY'
+            mirrorYZ = self.mirrorPlane == 'YZ'
+            mirrorXZ = self.mirrorPlane == 'XZ'
+            mirrorBehavior = self.rotationFunction == 'Behavior'
+
+
+            mirroredNodes = cmds.mirrorJoint(joints[0], mirrorXY = mirrorXY, mirrorYZ = mirrorYZ, mirrorXZ = mirrorXZ, mirrorBehavior = mirrorBehavior)
+
+            cmds.delete(joints)
+
+            mirroredJoints = []
+
+            for node in mirroredNodes:
+                if cmds.objectType(node, isType = 'joint'):
+                    mirroredJoints.append(node)
+
+                else:
+                    cmds.delete(node)
+
+            for index, joint in enumerate(mirroredJoints):
+                jointName = self.jointInfo[index][0]
+                newJointName = cmds.rename(joint, f'{self.moduleNamespace}:{jointName}')
+
+                self.jointInfo[index][1] = cmds.xform(newJointName, query = True, worldSpace = True, translation = True)
+
 
         # Parent the root joint (first joint created) under the joints group
         cmds.parent(joints[0], self.jointsGrp, absolute = True)
@@ -402,90 +430,14 @@ class Blueprint:
         rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')
         utils.addNodeToContainer(container = self.containerName, nodesIn = [rootJoint_pointConstraint])
 
+        self.initializeHook(translationControls[0])
+
         for index in range(len(joints) - 1):
             self.setupStretchyJointSegment(parentJoint = joints[index], childJoint = joints[index + 1])
 
         self.install_custom(joints)
 
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
-
-
-        # self.moduleGrp = cmds.group([self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp], name = f'{self.moduleNamespace}:module_grp')
-        #
-        # utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)  # Create a container and include the hierarchy.
-        #
-        # cmds.select(clear = True)
-        #
-        # joints = []  # Create joints as defined in self.jointInfo.
-        #
-        # for index, (jointName, jointPos) in enumerate(self.jointInfo):
-        #     parentName = ''
-        #
-        #     if index > 0:
-        #         parentName = f'{self.moduleNamespace}:{self.jointInfo[index - 1][0]}'
-        #         cmds.select(parentName, replace = True)
-        #
-        #     jointName_full = cmds.joint(name = f'{self.moduleNamespace}:{jointName}', position = jointPos)
-        #     joints.append(jointName_full)
-        #
-        #     cmds.setAttr(f'{jointName_full}.visibility', 1)  # Hide joint from view.
-        #
-        #     utils.addNodeToContainer(self.containerName, jointName_full)  # Add joint to the module container.
-        #
-        #     cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_R'))  # Publish joint rotate and rotateOrder attributes to the container.
-        #     cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_rotateOrder'))
-        #
-        #     if index > 0:  # Orient the joint properly if it's not the first one.
-        #         cmds.joint(parentName, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
-        #
-        # if self.mirrored:
-        #     mirrorXY = self.mirrorPlane == 'XY'
-        #     mirrorYZ = self.mirrorPlane == 'YZ'
-        #     mirrorXZ = self.mirrorPlane == 'XZ'
-        #     mirrorBehavior = self.rotationFunction == 'Behavior'
-        #
-        #     mirroredNodes = cmds.mirrorJoint(joints[0], mirrorXY = mirrorXY, mirrorYZ = mirrorYZ, mirrorXZ = mirrorXZ, mirrorBehavior = mirrorBehavior)
-        #
-        #     cmds.delete(joints)
-        #
-        #     mirroredJoints = []
-        #
-        #     for node in mirroredNodes:
-        #         if cmds.objectType(node, isType = 'joint'):
-        #             mirroredJoints.append(node)
-        #
-        #         else:
-        #             cmds.delete(node)
-        #
-        #     for index, joint in enumerate(mirroredJoints):
-        #         jointName = self.jointInfo[index][0]
-        #         newJointName = cmds.rename(joint, f'{self.moduleNamespace}:{jointName}')
-        #
-        #         self.jointInfo[index][1] = cmds.xform(newJointName, query = True, worldSpace = True, translation = True)
-        #
-        # cmds.parent(joints[0], self.jointsGrp, absolute = True)  # Parent the root joint to the joints group.
-        #
-        # self.initializeModuleTransform(self.jointInfo[0][1])  # Initialize the module's main transform.
-        #
-        # translationControls = []  # Create translation controls at each joint.
-        #
-        # for joint in joints:
-        #     translationControls.append(self.createTranslationControlAtJoint(joint))
-        #
-        # rootJoint_pointConstraint = cmds.pointConstraint(translationControls[0], joints[0], maintainOffset = False, name = f'{joints[0]}_pointConstraint')  # Constrain the root joint to its translation control.
-        #
-        # utils.addNodeToContainer(self.containerName, rootJoint_pointConstraint)
-        #
-        # self.initializeHook(translationControls[0])  # Initialize the hook object if one was provided.
-        #
-        # for index in range(len(joints) - 1):  # Create stretchy segments between each joint pair.
-        #     self.setupStretchyJointSegment(connectorType = 'orientation', parentJoint = joints[index], childJoint = joints[index + 1])
-        #
-        # self.install_custom(joints)  # Call custom installation logic from derived classes.
-        #
-        #
-        # utils.forceSceneUpdate()
-        # cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)  # Lock the container to prevent accidental edits.
 
     def createTranslationControlAtJoint(self, joint):
         """
@@ -542,6 +494,11 @@ class Blueprint:
         endLocator = ikNodes['endLocator']
 
         childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset = False, name = f'{endLocator}_pointConstraint')[0]
+
+        if self.mirrored:
+            if self.mirrorPlane == 'XZ':
+                cmds.setAttr(f'{ikHandle}.twist', 90)
+
         utils.addNodeToContainer(container = self.containerName, nodesIn = [poleVectorLocatorGrp, parentConstraint, childPointConstraint], includeHierarchyBelow = True)
 
         for node in [ikHandle, rootLocator, endLocator]:
@@ -566,33 +523,35 @@ class Blueprint:
 
         cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = rootPosition)  # Set its world space position.
 
-        # if self.mirrored:
-        #
-        #     duplicateTransform = cmds.duplicate(f'{self.originalModule}:module_transform', parentOnly = True, name = 'TEMP_TRANSFORM')[0]
-        #     emptyGroup = cmds.group(empty = True)
-        #     cmds.parent(duplicateTransform, emptyGroup, absolute = True)
-        #
-        #     scaleAttr = 'scaleX'
-        #
-        #     if self.mirrorPlane == 'XZ':
-        #         scaleAttr = 'scaleY'
-        #     elif self.mirrorPlane == 'XY':
-        #         scaleAttr = 'scaleZ'
-        #
-        #     cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
-        #
-        #     # cmds.setAttr(f'{self.orientationConnectorsGrp}.{scaleAttr}', -1)
-        #
-        #     parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
-        #     cmds.delete(parentConstraint)
-        #     cmds.delete(emptyGroup)
-        #
-        #     tempLocator = cmds.spaceLocator()[0]
-        #     scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
-        #     scale = cmds.getAttr(f'{tempLocator}.scaleX')
-        #     cmds.delete([scaleConstraint, tempLocator])
-        #
-        #     cmds.xform(self.moduleTransform, objectSpace = True, scale = [scale, scale, scale])
+        if self.mirrored:
+
+            duplicateTransform = cmds.duplicate(f'{self.originalModule}:module_transform', parentOnly = True, name = 'TEMP_TRANSFORM')[0]
+            emptyGroup = cmds.group(empty = True)
+            cmds.parent(duplicateTransform, emptyGroup, absolute = True)
+
+            scaleAttr = 'scaleX'
+
+            if self.mirrorPlane == 'XZ':
+                scaleAttr = 'scaleY'
+            elif self.mirrorPlane == 'XY':
+                scaleAttr = 'scaleZ'
+
+            cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
+
+            # cmds.setAttr(f'{self.orientationConnectorsGrp}.{scaleAttr}', -1)
+
+            parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
+            # parentConstraint2 = cmds.parentConstraint(duplicateTransform, self.orientationConnectorsGrp, maintainOffset = False)
+            cmds.delete(parentConstraint,)
+            cmds.delete(emptyGroup)
+
+            tempLocator = cmds.spaceLocator()[0]
+            scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
+            scale = cmds.getAttr(f'{tempLocator}.scaleX')
+
+            cmds.delete([scaleConstraint, tempLocator])
+
+            cmds.xform(self.moduleTransform, objectSpace = True, scale = (scale, scale, scale))
 
         utils.addNodeToContainer(container = self.containerName, nodesIn = [self.moduleTransform], includeHierarchyBelow = True)
 
@@ -623,48 +582,7 @@ class Blueprint:
         self.hierarchyContainer = container
         self.hierarchyConnector = connector
 
-        # constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstrainedGrp')
-        # cmds.parent(connector, constrainedGrp, absolute = True)
-
-
-
-
-        # parentTranslationControl = self.getTranslationControl(parentJoint)
-        # childTranslationControl = self.getTranslationControl(childJoint)
-        #
-        # # Create a locator for the pole vector control and constrain it.
-        # poleVectorLocator = cmds.spaceLocator(name = f'{parentTranslationControl}_poleVectorLocator')[0]
-        # poleVectorLocatorGrp = cmds.group(poleVectorLocator, name = f'{poleVectorLocator}_parentConstraintGrp')
-        #
-        # cmds.parent(poleVectorLocatorGrp, self.moduleGrp, absolute = True)
-        # parentConstraint = cmds.parentConstraint(parentTranslationControl, poleVectorLocatorGrp, maintainOffset = False)[0]
-        #
-        # cmds.setAttr(f'{poleVectorLocator}.visibility', 1)
-        # cmds.setAttr(f'{poleVectorLocator}.ty', -0.5)
-        #
-        # self.createConnector(connectorType = connectorType, name = parentJoint, parentJoint = parentJoint, childJoint = childJoint)
-        #
-        # # Setup stretchy IK using utility function.
-        # ikNodes = utils.basicStretchyIK(rootJoint = parentJoint, endJoint = childJoint, container = self.containerName, lockMinimumLength = False, poleVectorObject = poleVectorLocator,
-        #                                 scaleCorrectionAttribute = None)
-        #
-        # ikHandle = ikNodes['ikHandle']
-        # rootLocator = ikNodes['rootLocator']
-        # endLocator = ikNodes['endLocator']
-        #
-        # if self.mirrored:
-        #     if self.mirrorPlane == 'XZ':
-        #         cmds.setAttr(f'{ikHandle}.twist', 90)
-        #
-        # # Constrain end locator to translation control.
-        # childPointConstraint = cmds.pointConstraint(childTranslationControl, endLocator, maintainOffset = False, name = f'{endLocator}_pointConstraint')[0]
-        #
-        # utils.addNodeToContainer(self.containerName, [poleVectorLocatorGrp, parentConstraint, childPointConstraint], includeHierarchyBelow = True)
-        #
-        # # Hide and parent IK nodes.
-        # for node in [ikHandle, rootLocator, endLocator]:
-        #     cmds.parent(node, self.jointsGrp, absolute = True)
-        #     cmds.setAttr(f'{node}.visibility', 1)
+        return [container, connector, constrainedGrp]
 
     def createOrientationConnector(self, parentJoint, childJoint):
         cmds.delete(self.hierarchyContainer)
@@ -691,63 +609,24 @@ class Blueprint:
         cmds.container(container, edit = True, publishAndBind = (f'{connector}.rotateX', attrName))
         cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
 
+        return [container, connector, constrainedGrp]
 
-    # def createConnector(self, connectorType, name, parentJoint, childJoint):
-    #     """
-    #     Creates a visual connector between two joints, typically used to represent hierarchy links.
-    #
-    #     This function creates a stretchy visual object between the parent and child joints
-    #     using the specified connector type, then parents the resulting visual representation under the provided group.
-    #
-    #     Args:
-    #         connectorType (str): The type of visual connection to create (e.g., 'hierarchy', 'orientation').
-    #         parentGrp (str): The transform node under which the connector should be parented.
-    #         parentJoint (str): The name of the starting joint of the connection.
-    #         childJoint (str): The name of the ending joint of the connection.
-    #
-    #     Returns:
-    #         list: A list containing:
-    #             - container (str): The name of the container node for the created objects.
-    #             - control (str): The name of the main control or geometry created.
-    #             - constrainedGrp (str): The name of the group constrained between the two joints.
-    #     """
-    #
-    #     if connectorType == 'orientation':
-    #         container, connector = utils.createOrientationConnector(name)
-    #         parentGrp = self.moduleTransform
-    #
-    #     elif connectorType == 'hierarchy':
-    #         container, connector = utils.createHierarchyConnector(name)
-    #         parentGrp = self.hierarchyConnectorsGrp
-    #
-    #     elif connectorType == 'hook':
-    #         container, connector = utils.createHookConnector(name)
-    #         parentGrp = None
-    #
-    #     constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstraint_grp')
-    #     cmds.parent(connector, constrainedGrp, absolute = True)
-    #     parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)[0]
-    #
-    #     # Connect translateX to scaleX to drive stretch.
-    #     cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
-    #
-    #     scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
-    #
-    #     if parentGrp:
-    #         cmds.parent(constrainedGrp, parentGrp, relative = True)
-    #
-    #     # Add to containers.
-    #     utils.addNodeToContainer(container, [constrainedGrp, parentConstraint, scaleConstraint], includeHierarchyBelow = True)
-    #     utils.addNodeToContainer(self.containerName, container)
-    #
-    #     # Parent the visual representation group under the hierarchy group.
-    #     if connectorType == 'orientation':
-    #         niceName = utils.stripLeadingNamespace(parentJoint)[1]
-    #         attrName = f'{niceName}_orientation'
-    #         cmds.container(container, edit = True, publishAndBind = (f'{connector}.rotateX', attrName))
-    #         cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
-    #
-    #     return [container, connector, constrainedGrp]
+    def createHookConnector(self, parentJoint, childJoint):
+        container, connector, constrainedGrp = utils.createHookConnector(parentJoint)
+
+        parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)
+
+        cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
+
+        scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
+
+        utils.addNodeToContainer(container = container, nodesIn = [parentConstraint, scaleConstraint, constrainedGrp], includeHierarchyBelow = True)
+        utils.addNodeToContainer(container = self.containerName, nodesIn = [container])
+
+        self.hookContainer = container
+        self.hookConnector = connector
+
+        return [container, connector, constrainedGrp]
 
     def getJoints(self):
         jointBaseName = f'{self.moduleNamespace}:'
@@ -904,7 +783,6 @@ class Blueprint:
     def initializeHook(self, rootTranslationControl):
         unhookedLocator = cmds.spaceLocator(name = f'{self.moduleNamespace}:unhookedTarget')[0]
         cmds.pointConstraint(rootTranslationControl, unhookedLocator, offset = (0, 0.001, 0), name = f'{unhookedLocator}_pointConstraint')
-
         cmds.setAttr(f'{unhookedLocator}.visibility', 0)
 
         if not self.hookObject:
@@ -925,14 +803,13 @@ class Blueprint:
 
         cmds.joint(rootJoint, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
 
-        hookGrp = cmds.group(rootJoint, unhookedLocator, name = f'{self.moduleNamespace}:hook_grp', parent = self.moduleGrp)
-        hookContainer = utils.createContainer(name = f'{self.moduleNamespace}:hook_container', nodesIn = hookGrp, includeHierarchyBelow = True, includeShaders = True, includeTransform = True, includeShapes = True)
-
+        hookGrp = cmds.group([rootJoint, unhookedLocator], name = f'{self.moduleNamespace}:hook_grp', parent = self.moduleGrp)
+        hookContainer = utils.createContainer(name = f'{self.moduleNamespace}:hook_container', nodesIn = [hookGrp], includeHierarchyBelow = True)
         utils.addNodeToContainer(self.containerName, hookContainer)
 
         for joint in [rootJoint, targetJoint]:
             jointName = utils.stripAllNamespaces(joint)[1]
-            cmds.container(hookContainer, edit = True, publishAndBind = (f'{joint}.rotate', f'{jointName}_R'))
+            cmds.container(hookContainer, edit = True, publishAndBind = (f'{joint}.rotate', f'{jointName}_Rotate'))
 
         ikNodes = utils.basicStretchyIK(rootJoint = rootJoint, endJoint = targetJoint, container = hookContainer, lockMinimumLength = False)
         ikHandle = ikNodes['ikHandle']
@@ -940,17 +817,17 @@ class Blueprint:
         endLocator = ikNodes['endLocator']
         poleVectorLocator = ikNodes['poleVectorObject']
 
-        rootPointConstraint = cmds.pointConstraint(f'{rootTranslationControl}', rootJoint, maintainOffset = False, name = f'{rootJoint}_pointConstraint')[0]
+        rootPointConstraint = cmds.pointConstraint(rootTranslationControl, rootJoint, maintainOffset = False, name = f'{rootJoint}_pointConstraint')[0]
         targetPointConstraint = cmds.pointConstraint(self.hookObject, endLocator, maintainOffset = False, name = f'{self.moduleNamespace}:hook_pointConstraint')[0]
 
-        utils.addNodeToContainer(hookContainer, [rootPointConstraint, targetPointConstraint])
+        utils.addNodeToContainer(container = hookContainer, nodesIn = [rootPointConstraint, targetPointConstraint])
 
         for node in [ikHandle, rootLocator, endLocator, poleVectorLocator]:
             cmds.parent(node, hookGrp, absolute = True)
             cmds.setAttr(f'{node}.visibility', 0)
 
-        container, connector, constrainedGrp = self.createConnector(connectorType = 'hook', name = rootJoint, parentJoint = rootJoint, childJoint = targetJoint)
-        cmds.parent(constrainedGrp, hookGrp, absolute = True)
+        container, connector, constrainedGrp = self.createHookConnector(parentJoint = rootJoint, childJoint = targetJoint)
+        cmds.parent(constrainedGrp, hookGrp, relative = True)
 
         cmds.container(self.containerName, edit = True, removeNode = container)
         utils.addNodeToContainer(hookContainer, container)
@@ -1119,42 +996,6 @@ class Blueprint:
 
                 cmds.xform(newPoleVectorLocator, worldSpace = True, absolute = True, translation = originalPoleVectorLocatorPosition)
 
-            if mirrorOrientationConnector:
-                # --- RE-INTRODUCED AND MODIFIED CODE FOR ORIENTATION CONTROL MIRRORING ---
-                originalOrientationControl = self.getOrientationControl(originalJoint)
-                newOrientationControl = self.getOrientationControl(newJoint)
-
-                # Get world space rotation of the original orientation control
-                originalRotation = cmds.xform(originalOrientationControl, query = True, worldSpace = True, rotation = True)
-
-                # Apply mirroring logic to the rotation
-                mirroredRotation = list(originalRotation)  # Convert to list to modify
-
-                if self.mirrorPlane == 'YZ':  # Mirroring across X-axis (YZ plane)
-                    # To flip both Y and Z axes, you typically flip X and Y rotations.
-                    # The exact combination can sometimes be tricky due to Euler order.
-                    # For a YZ plane mirror, X-axis is the normal.
-                    # Flipping X and Y rotations often achieves the desired "behavioral" mirror.
-                    mirroredRotation[0] *= -1  # Flip X rotation
-                    mirroredRotation[1] *= -1  # Flip Y rotation
-                    # Z rotation usually stays the same for a YZ plane mirror,
-                    # but if you specifically want Z to flip, you'd add:
-                    # mirroredRotation[2] *= -1
-
-                elif self.mirrorPlane == 'XZ':  # Mirroring across Y-axis (XZ plane)
-                    # Flip X and Z rotations
-                    mirroredRotation[0] *= -1
-                    mirroredRotation[2] *= -1
-
-                elif self.mirrorPlane == 'XY':  # Mirroring across Z-axis (XY plane)
-                    # Flip X and Y rotations
-                    mirroredRotation[0] *= -1
-                    mirroredRotation[1] *= -1
-
-                # Apply the mirrored rotation to the new orientation control
-                cmds.xform(newOrientationControl, worldSpace = True, absolute = True, rotation = mirroredRotation)
-                # --- END MODIFIED CODE ---
-
             index += 1
 
-        cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
+        # cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)

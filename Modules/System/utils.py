@@ -579,7 +579,6 @@ def createOrientationConnector(name):
     # Create Z axis object
     z_cube = cmds.polyCube(name = f'{name}_z_cube', width = 1, height = 1, depth = 0.1, ch = False)[0]
     cmds.rotate(90, 0, 0, f'{z_cube}.vtx[0:7]', relative = True)
-
     cmds.move(0.5, 0, 0, f'{z_cube}.vtx[0:7]', relative = True)
 
 
@@ -646,11 +645,14 @@ def createHookConnector(name):
 
     connector = cmds.rename(cylinder, f'{name}_hook_connector', ignoreShape = True)
 
+    constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstrainedGrp')
+    cmds.parent(connector, constrainedGrp, absolute = True)
+
     # Create container and add nodes
-    container = createContainer(name = f'{name}_hook_container', nodesIn = [connector, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
+    container = createContainer(name = f'{name}_hook_container', nodesIn = [connector, constrainedGrp, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
                                 includeShapes = True)
 
-    return [container, connector]
+    return [container, connector, constrainedGrp]
 
 
 def createModuleTransformControl(name):

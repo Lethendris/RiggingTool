@@ -679,7 +679,7 @@ class Blueprint_UI(QtWidgets.QDialog):
 
         self._clearLayout(self.moduleControlScrollLayout)
 
-        if self.moduleInstance is not None:
+        if self.moduleInstance:
             self.moduleInstance.UI(self, self.moduleControlScrollLayout)
 
     def deleteModule(self):
@@ -788,14 +788,14 @@ class Blueprint_UI(QtWidgets.QDialog):
             for module, moduleInfo in moduleInstances:
                 module.lockPhase2(moduleInfo)
 
-            # groupContainer = 'Group_container'
-            # if cmds.objExists(groupContainer):
-            #     cmds.lockNode(groupContainer, lock = False, lockUnpublished = False)
-            #     cmds.delete(groupContainer)
-            #
-            # for module in moduleInstances:
-            #     hookObject = module[1][4]
-            #     module[0].lockPhase3(hookObject)
+            groupContainer = 'Group_container'
+            if cmds.objExists(groupContainer):
+                cmds.lockNode(groupContainer, lock = False, lockUnpublished = False)
+                cmds.delete(groupContainer)
+
+            for module in moduleInstances:
+                hookObject = module[1][4]
+                module[0].lockPhase3(hookObject)
 
     def groupSelected(self):
         import System.groupSelected as groupSelected
