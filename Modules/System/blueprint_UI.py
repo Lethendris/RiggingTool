@@ -272,190 +272,6 @@ class Blueprint_UI(QtWidgets.QDialog):
 
             self.addModuleToUI()
 
-    def installModule(self, moduleName, moduleObject):
-
-        baseName = 'instance_'
-
-        cmds.namespace(setNamespace = ":")
-        rawNamespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
-
-        # Strip prefix before '__' if present
-        strippedNamespaces = [ns.partition('__')[2] if '__' in ns else ns for ns in rawNamespaces]
-
-        newSuffix = utils.findHighestTrailingNumber(strippedNamespaces, baseName) + 1
-
-        userSpecifiedName = f'{baseName}{newSuffix}'
-
-        hookObj = self.findHookObjectFromSelection()
-
-        if moduleObject and hasattr(moduleObject, moduleName):
-            moduleClass = getattr(moduleObject, moduleName)
-            moduleInstance = moduleClass(userSpecifiedName, hookObj)
-            moduleInstance.install()
-
-            # moduleTransform = f'{moduleName}__{userSpecifiedName}:module_transform'
-            # cmds.select(moduleTransform)
-            # cmds.setToolTo('moveSuperContext')
-
-    def findHookObjectFromSelection(self):
-        selectedObjects = cmds.ls(selection = True, transforms = True)
-
-        numberOfSelectedObjects = len(selectedObjects)
-
-        hookObj = None
-
-        if numberOfSelectedObjects != 0:
-            hookObj = selectedObjects[numberOfSelectedObjects - 1]  # pick last selected as hookObj
-
-        return hookObj
-
-    def rehookModuleSetup(self):
-
-        selectedNodes = cmds.ls(selection = True, transforms = True)
-
-        if len(selectedNodes) == 2:
-            newHook = self.findHookObjectFromSelection()
-            self.moduleInstance.rehook(newHook)
-
-        else:
-            self.deleteScriptJob()
-
-            currentSelection = cmds.ls(selection = True)
-            cmds.headsUpMessage('Please select the joint you want to re-hook to. Clear selection to un-hook')
-
-            cmds.scriptJob(event = ('SelectionChanged', partial(self.rehookModule_callback, currentSelection)), runOnce = True)
-
-    def rehookModule_callback(self, currentSelection):
-
-        newHook = self.findHookObjectFromSelection()
-        self.moduleInstance.rehook(newHook)
-
-        if len(currentSelection) > 0:
-            cmds.select(currentSelection, replace = True)
-
-        else:
-            cmds.select(clear = True)
-
-        self.createScriptJob()
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        self.createScriptJob()
-
-    def closeEvent(self, event):
-        super().closeEvent(event)
-        self.deleteScriptJob()
-
-    def createScriptJob(self):
-        self.jobNum = cmds.scriptJob(event = ['SelectionChanged', self.modifySelected], runOnce = True)
-
-    def deleteScriptJob(self):
-        cmds.scriptJob(kill = self.jobNum, force = True)
-
-    def modifySelected(self):
-
-        selectedNodes = cmds.ls(selection = True)
-
-        if len(selectedNodes) <= 1:
-            self.moduleInstance = None
-            selectedModuleNamespace = None
-            currentModuleFile = None
-
-            self.buttons['Ungroup'].setEnabled(False)
-            self.buttons['Mirror Module'].setEnabled(False)
-
-            if len(selectedNodes) == 1:
-                lastSelected = selectedNodes[0]
-
-                if lastSelected.startswith('Group__'):
-                    self.buttons['Ungroup'].setEnabled(True)
-                    self.buttons['Mirror Module'].setEnabled(True)
-                    self.buttons['Mirror Module'].setText('Mirror Group')
-
-                namespaceAndNode = utils.stripLeadingNamespace(lastSelected)
-
-                if namespaceAndNode:
-                    namespace = namespaceAndNode[0]
-
-                    validModules = [module for module in utils.loadAllModulesFromDirectory(self.modulesDir).keys()]
-                    validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(self.modulesDir).values()]
-
-                    for index, moduleName in enumerate(validModuleNames):
-                        moduleNameIncSuffix = f'{moduleName}__'
-                        if namespace.find(moduleNameIncSuffix) == 0:
-                            currentModuleFile = validModules[index]
-                            selectedModuleNamespace = namespace
-                            break
-
-            controlEnable = False
-            userSpecifiedName = ''
-            constrainCommand = self.constrainRookToHook
-            constrainLabel = 'Constrain Root > Hook'
-
-            if selectedModuleNamespace:
-                controlEnable = True
-                userSpecifiedName = selectedModuleNamespace.partition('__')[2]
-
-                mod = importlib.import_module(f'Blueprint.{currentModuleFile}')
-                importlib.reload(mod)
-
-                moduleClass = getattr(mod, mod.CLASS_NAME)
-                self.moduleInstance = moduleClass(userSpecifiedName, None)
-
-                self.buttons['Mirror Module'].setEnabled(True)
-                self.buttons['Mirror Module'].setText('Mirror Module')
-
-                if self.moduleInstance.isRootConstrained():
-                    constrainCommand = self.unconstrainRookFromHook
-                    constrainLabel = 'Unconstrain Root'
-
-            self.buttons['Rehook'].setEnabled(controlEnable)
-            self.buttons['Snap Root > Hook'].setEnabled(controlEnable)
-            self.buttons['Constrain Root > Hook'].setEnabled(controlEnable)
-            self.buttons['Constrain Root > Hook'].setText(constrainLabel)
-            self.buttons['Constrain Root > Hook'].clicked.connect(constrainCommand)
-
-            self.buttons['Delete'].setEnabled(controlEnable)
-            self.moduleInstanceLineEdit.setEnabled(controlEnable)
-            self.moduleInstanceLineEdit.setText(userSpecifiedName)
-
-            self.createModuleSpecificControls()
-
-        self.createScriptJob()
-
-    def createModuleSpecificControls(self):
-
-        self._clearLayout(self.moduleControlScrollLayout)
-
-        if self.moduleInstance is not None:
-            self.moduleInstance.UI(self, self.moduleControlScrollLayout)
-
-    def deleteModule(self):
-        self.moduleInstance.delete()
-        cmds.select(clear = True)
-
-    def _clearLayout(self, layout):
-        """Helper to clear all widgets and layouts from a given layout."""
-        if layout is None:
-            return
-        while layout.count():
-            item = layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.setParent(None)
-                widget.deleteLater()
-            elif item.layout():  # Handle nested layouts
-                self._clearLayout(item.layout())
-                item.layout().deleteLater()
-
-    def createHLine(self):
-        line = QtWidgets.QFrame()
-        line.setFrameShape(QtWidgets.QFrame.HLine)
-        line.setFrameShadow(QtWidgets.QFrame.Sunken)
-        line.setLineWidth(1)
-        line.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-        return line
-
     def setupUI(self):
 
         # MAIN LAYOUT
@@ -708,6 +524,190 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Ungroup'].clicked.connect(self.ungroupSelected)
         self.buttons['Mirror Module'].clicked.connect(self.mirrorSelection)
 
+    def installModule(self, moduleName, moduleObject):
+
+        baseName = 'instance_'
+
+        cmds.namespace(setNamespace = ":")
+        rawNamespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
+
+        # Strip prefix before '__' if present
+        strippedNamespaces = [ns.partition('__')[2] if '__' in ns else ns for ns in rawNamespaces]
+
+        newSuffix = utils.findHighestTrailingNumber(strippedNamespaces, baseName) + 1
+
+        userSpecifiedName = f'{baseName}{newSuffix}'
+
+        hookObj = self.findHookObjectFromSelection()
+
+        if moduleObject and hasattr(moduleObject, moduleName):
+            moduleClass = getattr(moduleObject, moduleName)
+            moduleInstance = moduleClass(userSpecifiedName, hookObj)
+            moduleInstance.install()
+
+            moduleTransform = f'{moduleName}__{userSpecifiedName}:module_transform'
+            cmds.select(moduleTransform)
+            cmds.setToolTo('moveSuperContext')
+
+    def findHookObjectFromSelection(self):
+        selectedObjects = cmds.ls(selection = True, transforms = True)
+
+        numberOfSelectedObjects = len(selectedObjects)
+
+        hookObj = None
+
+        if numberOfSelectedObjects != 0:
+            hookObj = selectedObjects[numberOfSelectedObjects - 1]  # pick last selected as hookObj
+
+        return hookObj
+
+    def rehookModuleSetup(self):
+
+        selectedNodes = cmds.ls(selection = True, transforms = True)
+
+        if len(selectedNodes) == 2:
+            newHook = self.findHookObjectFromSelection()
+            self.moduleInstance.rehook(newHook)
+
+        else:
+            self.deleteScriptJob()
+
+            currentSelection = cmds.ls(selection = True)
+            cmds.headsUpMessage('Please select the joint you want to re-hook to. Clear selection to un-hook')
+
+            cmds.scriptJob(event = ('SelectionChanged', partial(self.rehookModule_callback, currentSelection)), runOnce = True)
+
+    def rehookModule_callback(self, currentSelection):
+
+        newHook = self.findHookObjectFromSelection()
+        self.moduleInstance.rehook(newHook)
+
+        if len(currentSelection) > 0:
+            cmds.select(currentSelection, replace = True)
+
+        else:
+            cmds.select(clear = True)
+
+        self.createScriptJob()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.createScriptJob()
+
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        self.deleteScriptJob()
+
+    def createScriptJob(self):
+        self.jobNum = cmds.scriptJob(event = ['SelectionChanged', self.modifySelected], runOnce = True)
+
+    def deleteScriptJob(self):
+        cmds.scriptJob(kill = self.jobNum, force = True)
+
+    def modifySelected(self):
+
+        selectedNodes = cmds.ls(selection = True)
+
+        if len(selectedNodes) <= 1:
+            self.moduleInstance = None
+            selectedModuleNamespace = None
+            currentModuleFile = None
+
+            self.buttons['Ungroup'].setEnabled(False)
+            self.buttons['Mirror Module'].setEnabled(False)
+
+            if len(selectedNodes) == 1:
+                lastSelected = selectedNodes[0]
+
+                if lastSelected.startswith('Group__'):
+                    self.buttons['Ungroup'].setEnabled(True)
+                    self.buttons['Mirror Module'].setEnabled(True)
+                    self.buttons['Mirror Module'].setText('Mirror Group')
+
+                namespaceAndNode = utils.stripLeadingNamespace(lastSelected)
+
+                if namespaceAndNode:
+                    namespace = namespaceAndNode[0]
+
+                    validModules = [module for module in utils.loadAllModulesFromDirectory(self.modulesDir).keys()]
+                    validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(self.modulesDir).values()]
+
+                    for index, moduleName in enumerate(validModuleNames):
+                        moduleNameIncSuffix = f'{moduleName}__'
+                        if namespace.find(moduleNameIncSuffix) == 0:
+                            currentModuleFile = validModules[index]
+                            selectedModuleNamespace = namespace
+                            break
+
+            controlEnable = False
+            userSpecifiedName = ''
+            constrainCommand = self.constrainRookToHook
+            constrainLabel = 'Constrain Root > Hook'
+
+            if selectedModuleNamespace:
+                controlEnable = True
+                userSpecifiedName = selectedModuleNamespace.partition('__')[2]
+
+                mod = importlib.import_module(f'Blueprint.{currentModuleFile}')
+                importlib.reload(mod)
+
+                moduleClass = getattr(mod, mod.CLASS_NAME)
+                self.moduleInstance = moduleClass(userSpecifiedName, None)
+
+                self.buttons['Mirror Module'].setEnabled(True)
+                self.buttons['Mirror Module'].setText('Mirror Module')
+
+                if self.moduleInstance.isRootConstrained():
+                    constrainCommand = self.unconstrainRookFromHook
+                    constrainLabel = 'Unconstrain Root'
+
+            self.buttons['Rehook'].setEnabled(controlEnable)
+            self.buttons['Snap Root > Hook'].setEnabled(controlEnable)
+            self.buttons['Constrain Root > Hook'].setEnabled(controlEnable)
+            self.buttons['Constrain Root > Hook'].setText(constrainLabel)
+            self.buttons['Constrain Root > Hook'].clicked.connect(constrainCommand)
+
+            self.buttons['Delete'].setEnabled(controlEnable)
+            self.moduleInstanceLineEdit.setEnabled(controlEnable)
+            self.moduleInstanceLineEdit.setText(userSpecifiedName)
+
+            self.createModuleSpecificControls()
+
+        self.createScriptJob()
+
+    def createModuleSpecificControls(self):
+
+        self._clearLayout(self.moduleControlScrollLayout)
+
+        if self.moduleInstance is not None:
+            self.moduleInstance.UI(self, self.moduleControlScrollLayout)
+
+    def deleteModule(self):
+        self.moduleInstance.delete()
+        cmds.select(clear = True)
+
+    def _clearLayout(self, layout):
+        """Helper to clear all widgets and layouts from a given layout."""
+        if layout is None:
+            return
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+            elif item.layout():  # Handle nested layouts
+                self._clearLayout(item.layout())
+                item.layout().deleteLater()
+
+    def createHLine(self):
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        line.setLineWidth(1)
+        line.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        return line
+
     def mirrorSelection(self):
         import System.mirrorModule as mirrorModule
         importlib.reload(mirrorModule)
@@ -741,11 +741,16 @@ class Blueprint_UI(QtWidgets.QDialog):
         self.buttons['Constrain Root > Hook'].clicked.connect(self.constrainRookToHook)
 
     def lockClicked(self):
-        reply = QtWidgets.QMessageBox.question(self, "Lock Blueprints?",
-                                               "Locking the character will convert current blueprint modules to joints.This action cannot be undone. Modifications to the blueprint system cannot be made after this point.\nDo you want to continue?",
-                                               QtWidgets.QMessageBox.StandardButton.Ok | QtWidgets.QMessageBox.StandardButton.Cancel)
-        if reply == QtWidgets.QMessageBox.StandardButton.Cancel:
+        msg = QtWidgets.QMessageBox()
+        msg.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.WindowTitleHint | QtCore.Qt.CustomizeWindowHint)
+        msg.setWindowTitle("Lock Blueprints?")
+        msg.setText('<div align="center">Locking the character will convert current blueprint modules to joints.<br>Modifications to the blueprint system cannot be made after this point.<b><font color="#FF2C2C"><br><br>This action cannot be undone.</font></b><br>Do you want to continue?</div>')
+        msg.setStandardButtons(QtWidgets.QMessageBox.Ok | QtWidgets.QMessageBox.Cancel)
+        reply = msg.exec_()
+
+        if reply == QtWidgets.QMessageBox.Cancel:
             return
+
         else:
             moduleInfo = []
 
@@ -755,43 +760,42 @@ class Blueprint_UI(QtWidgets.QDialog):
             validModules = [module for module in utils.loadAllModulesFromDirectory(self.modulesDir).keys()]
             validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(self.modulesDir).values()]
 
-            for n in namespaces:
-                splitString = n.partition('__')
+            for namespace in namespaces:
+                moduleName, sep, userSpecifiedName = namespace.partition('__')
 
-                if splitString[1] != '':
-                    module = splitString[0]
-                    userSpecifiedName = splitString[2]
-
-                    if module in validModuleNames:
-                        index = validModuleNames.index(module)
-                        moduleInfo.append([validModules[index], userSpecifiedName])
+                if sep and moduleName in validModuleNames:
+                    index = validModuleNames.index(moduleName)
+                    moduleInfo.append([validModules[index], userSpecifiedName])
 
             if len(moduleInfo) == 0:
-                QtWidgets.QMessageBox.information(None, "Lock Blueprints?", "There is no blueprint module instance in the current scene.\nAborting Lock.")
+                msg = QtWidgets.QMessageBox()
+                msg.setWindowTitle("Lock Blueprints?")
+                msg.setText('<div align="center">There is no blueprint module instance in the current scene.<br>Aborting Lock.</div>')
+                msg.setIcon(QtWidgets.QMessageBox.NoIcon)  # <-- Removes the icon
+                msg.exec_()
 
             moduleInstances = []
 
-            for module in moduleInfo:
-                mod = importlib.import_module(f'Blueprint.{module[0]}')
+            for module, userSpecifiedName in moduleInfo:
+                mod = importlib.import_module(f'Blueprint.{module}')
                 importlib.reload(mod)
 
                 moduleClass = getattr(mod, mod.CLASS_NAME)
-                moduleInst = moduleClass(module[1], None)
-                moduleInfo = moduleInst.lockPhase1()
+                moduleInstance = moduleClass(userSpecifiedName, None)
+                moduleInfo = moduleInstance.lockPhase1() # [[positions]], ([(orientationValues)], parent), jointRotationOrders, jointPreferredAngles, hookObject, rootTransform
+                moduleInstances.append((moduleInstance, moduleInfo))
 
-                moduleInstances.append((moduleInst, moduleInfo))
+            for module, moduleInfo in moduleInstances:
+                module.lockPhase2(moduleInfo)
 
-            for module in moduleInstances:
-                module[0].lockPhase2(module[1])
-
-            groupContainer = 'Group_container'
-            if cmds.objExists(groupContainer):
-                cmds.lockNode(groupContainer, lock = False, lockUnpublished = False)
-                cmds.delete(groupContainer)
-
-            for module in moduleInstances:
-                hookObject = module[1][4]
-                module[0].lockPhase3(hookObject)
+            # groupContainer = 'Group_container'
+            # if cmds.objExists(groupContainer):
+            #     cmds.lockNode(groupContainer, lock = False, lockUnpublished = False)
+            #     cmds.delete(groupContainer)
+            #
+            # for module in moduleInstances:
+            #     hookObject = module[1][4]
+            #     module[0].lockPhase3(hookObject)
 
     def groupSelected(self):
         import System.groupSelected as groupSelected

@@ -15,7 +15,7 @@ class SingleJointSegment(blueprintMod.Blueprint):
         super().__init__(CLASS_NAME, userSpecifiedName, jointInfo, hookObj)
 
     def install_custom(self, joints):
-        pass
+        self.createOrientationConnector(joints[0], joints[1])
 
     def UI_custom(self):
         joints = self.getJoints()
@@ -44,9 +44,7 @@ class SingleJointSegment(blueprintMod.Blueprint):
         for joint in joints:
             jointPositions.append(cmds.xform(joint, query = True, worldSpace = True, translation = True))
 
-
         cleanParent = f'{self.moduleNamespace}:joints_grp'
-
         orientationInfo = self.orientationControlledJoint_getOrientation(joints[0], cleanParent)
         cmds.delete(orientationInfo[1])
         jointOrientationValues.append(orientationInfo[0])
@@ -55,7 +53,8 @@ class SingleJointSegment(blueprintMod.Blueprint):
         jointRotationOrders.append(cmds.getAttr(f'{joints[0]}.rotateOrder'))
 
         jointPreferredAngles = None
-        hookObject = self.findHookObjectForLock()
+        # hookObject = self.findHookObjectForLock()
+        hookObject = None
         rootTransform = False
 
         moduleInfo = (jointPositions, jointOrientations, jointRotationOrders, jointPreferredAngles, hookObject, rootTransform)

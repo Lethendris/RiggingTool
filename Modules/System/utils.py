@@ -598,11 +598,14 @@ def createOrientationConnector(name):
     cmds.delete(z_cube, z_cone)
     connector = cmds.rename(y_cube, f'{name}_orientation_connector', ignoreShape = True)
 
+    constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstrainedGrp')
+    cmds.parent(connector, constrainedGrp, absolute = True)
+
     # Create container and add nodes
-    container = createContainer(name = f'{name}_orientation_container', nodesIn = [connector, y_material, y_materialInfo, z_material, z_materialInfo], includeHierarchyBelow = True,
+    container = createContainer(name = f'{name}_orientation_container', nodesIn = [connector, constrainedGrp, y_material, y_materialInfo, z_material, z_materialInfo], includeHierarchyBelow = True,
                                 includeShaders = True, includeTransform = True, includeShapes = True)
 
-    return [container, connector]
+    return [container, connector, constrainedGrp]
 
 def createHierarchyConnector(name):
     cylinder = cmds.polyCylinder(name = f'{name}_cylinder', sx = 8, sy = 1, sz = 1, height = 1, radius = 0.2, heightBaseline = -1, ch = False)[0]
@@ -625,11 +628,14 @@ def createHierarchyConnector(name):
     cmds.delete(cone)
     connector = cmds.rename(cylinder, f'{name}_hierarchy_connector', ignoreShape = True)
 
+    constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstrainedGrp')
+    cmds.parent(connector, constrainedGrp, absolute = True)
+
     # Create container and add nodes
-    container = createContainer(name = f'{name}_hierarchy_container', nodesIn = [connector, material, materialInfo], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
+    container = createContainer(name = f'{name}_hierarchy_container', nodesIn = [connector, material, materialInfo, constrainedGrp], includeHierarchyBelow = True, includeShaders = True, includeTransform = True,
                                 includeShapes = True)
 
-    return [container, connector]
+    return [container, connector, constrainedGrp]
 
 def createHookConnector(name):
     cylinder = cmds.cylinder(name = f'{name}_cylinder', radius = 0.2, heightRatio = 5, ch = False)[0]

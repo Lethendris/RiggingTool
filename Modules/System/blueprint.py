@@ -34,6 +34,7 @@ class Blueprint:
         """
 
         # Module Identification Attributes
+
         self.moduleName = moduleName
         self.userSpecifiedName = userSpecifiedName
         self.moduleNamespace = f'{self.moduleName}__{self.userSpecifiedName}'  # Unique namespace for this module instance.
@@ -42,15 +43,21 @@ class Blueprint:
         self.jointInfo = jointInfo  # List of (joint_name, joint_position) tuples
 
         # Maya Object References (initialized to None/empty list, populated by install method)
-        self.containerName = None  # Main container node.
+        self.containerName = f'{self.moduleNamespace}:module_container'  # Main container node.
         self.moduleGrp = None  # Top-level group for the module
         self.jointsGrp = None  # Group for joints
-        self.joints = None  # Module joints
+        self.hierarchyConnectorsGrp = None # Hierarchy connectors group
+        self.hierarchyContainer = None # Hierarchy container
+        self.hierarchyConnector = None # Hierarchy connector
+        self.orientationConnectorsGrp = None # Orientation connectors group
+        self.orientationContainer = None # Orientation container
+        self.orientationConnector = None # Orientation connector
+        self.moduleTransform = None # Module transform control
 
         self.hookObject = None
 
         # Determine if the provided hookObjectIn is a valid translation control.
-        if hookObjectIn is not None:
+        if hookObjectIn:
             # Check if the object name ends with '_translation_control' and has no suffix after it.
             before, split, after = hookObjectIn.rpartition('_translation_control')
             if split != '' and after == '':
@@ -125,12 +132,11 @@ class Blueprint:
 
         jointPositions = moduleInfo[0]
         numJoints = len(jointPositions)
-
         jointOrientations = moduleInfo[1]
         orientWithAxis = False
         pureOrientations = False
 
-        if jointOrientations[0] is None:  # Determine if orientations are pure rotations or axis information.
+        if not jointOrientations[0]:  # Determine if orientations are pure rotations or axis information.
             orientWithAxis = True
             jointOrientations = jointOrientations[1]
 
@@ -146,7 +152,7 @@ class Blueprint:
         jointPreferredAngles = moduleInfo[3]
         numPreferredAngles = 0
 
-        if jointPreferredAngles is not None:
+        if jointPreferredAngles:
             numPreferredAngles = len(jointPreferredAngles)
 
         hookObject = moduleInfo[4]
@@ -154,18 +160,20 @@ class Blueprint:
         rootTransform = moduleInfo[5]
 
         cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)  # Delete blueprint controls and unlock the container.
-        cmds.delete(self.containerName, hierarchy = 'below')
+
+        cmds.delete(self.containerName)
 
         cmds.namespace(setNamespace = ':')  # Set current namespace to root.
 
-        jointRadius = 1
+        jointRadius = 1.0
 
         if numJoints == 1:
             jointRadius = 1.5
 
         newJoints = []
 
-        for i in range(numJoints):  # Create new joints based on the gathered information.
+        # Create new joints based on the gathered information.
+        for i in range(numJoints):
             newJoint = ''
 
             cmds.select(clear = True)
@@ -173,7 +181,7 @@ class Blueprint:
             if orientWithAxis:
 
                 # Create joint with specified position and default rotation order.
-                newJoint = cmds.joint(name = f'{self.moduleNamespaces}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], rotationOrder = 'xyz', radius = jointRadius)
+                newJoint = cmds.joint(name = f'{self.moduleNamespace}:blueprint_{self.jointInfo[i][0]}', position = jointPositions[i], rotationOrder = 'xyz', radius = jointRadius)
 
                 if i != 0:
                     cmds.parent(newJoint, newJoints[i - 1], absolute = True)  # Parent the joint to the previous one in the hierarchy.
@@ -200,8 +208,9 @@ class Blueprint:
 
             newJoints.append(newJoint)
 
+
             if i < numRotationOrders:  # Apply rotation order if available.
-                cmds.setAttr(f'{newJoint}.rotateOrder', int(jointRotationOrders[i]))
+                cmds.setAttr(f'{newJoint}.rotateOrder', jointRotationOrders[i])
 
             if i < numPreferredAngles:  # Apply preferred angles if available.
                 cmds.setAttr(f'{newJoint}.preferredAngleX', jointPreferredAngles[i][0])
@@ -334,7 +343,6 @@ class Blueprint:
 
     # BASE CLASS METHODS
     def install(self):
-
         # Ensure we are in the root namespace before creating the module's namespace
         cmds.namespace(setNamespace = ':')
         cmds.namespace(addNamespace = self.moduleNamespace)
@@ -342,16 +350,17 @@ class Blueprint:
         # Subgroups for different types of nodes
         self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:joints_grp')
         self.moduleGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:module_grp')
-
-        # Parent subgroups under the main module group
-        cmds.parent(self.jointsGrp, self.moduleGrp, absolute = True)
+        self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:hierarchy_connectors_grp')
+        self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:orientation_connectors_grp')
 
         # Create the main container for the module
         # Pass the top-level module group to the container
         self.containerName = utils.createContainer(f'{self.moduleNamespace}:module_container', nodesIn = [self.moduleGrp], includeHierarchyBelow = True)
-        cmds.select(clear = True)
+        # Parent subgroups under the main module group
+        cmds.parent(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, self.moduleGrp, absolute = True)
 
         # List to store the full names of created joints
+        cmds.select(clear = True)
         joints = []
         for index, joint in enumerate(self.jointInfo):
             jointName = joint[0]  # ex: 'root_joint', 'end_joint'
@@ -383,6 +392,8 @@ class Blueprint:
         # Parent the root joint (first joint created) under the joints group
         cmds.parent(joints[0], self.jointsGrp, absolute = True)
 
+        self.initializeModuleTransform(self.jointInfo[0][1])
+
         translationControls = []
 
         for joint in joints:
@@ -394,13 +405,11 @@ class Blueprint:
         for index in range(len(joints) - 1):
             self.setupStretchyJointSegment(parentJoint = joints[index], childJoint = joints[index + 1])
 
-        # Store the list of created joints as an instance attribute for other methods
-        self.joints = joints
+        self.install_custom(joints)
 
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
 
-        # self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:hierarchyConnectors_grp')
-        # self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:orientationConnectors_grp')
+
         # self.moduleGrp = cmds.group([self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp], name = f'{self.moduleNamespace}:module_grp')
         #
         # utils.createContainer(name = self.containerName, nodesIn = [self.moduleGrp], includeHierarchyBelow = True)  # Create a container and include the hierarchy.
@@ -492,6 +501,8 @@ class Blueprint:
         container, control = utils.createTranslationControl(joint)
         utils.addNodeToContainer(container = self.containerName, nodesIn = [container])
 
+        cmds.parent(control, self.moduleTransform, absolute = True)
+
         jointPosition = cmds.xform(joint, query = True, worldSpace = True, translation = True)
         cmds.xform(control, worldSpace = True, absolute = True, translation = jointPosition)
 
@@ -537,6 +548,83 @@ class Blueprint:
             cmds.parent(node, self.jointsGrp, absolute = True)
             cmds.setAttr(f'{node}.visibility', 0)
 
+        self.createHierarchyConnector(parentJoint, childJoint)
+
+    def initializeModuleTransform(self, rootPosition):
+        """
+        Creates and initializes the main transform for the module.
+
+        This transform serves as the root for all module components and allows
+        for easy manipulation of the entire module.
+
+        Args:
+            rootPosition (tuple[float, float, float]): A list of three floats [x, y, z] representing the initial
+                             world space position of the module transform.
+        """
+
+        self.moduleTransform = utils.createModuleTransformControl(name = f'{self.moduleNamespace}:module_transform')  # Create an empty group to serve as the module's main transform.
+
+        cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = rootPosition)  # Set its world space position.
+
+        # if self.mirrored:
+        #
+        #     duplicateTransform = cmds.duplicate(f'{self.originalModule}:module_transform', parentOnly = True, name = 'TEMP_TRANSFORM')[0]
+        #     emptyGroup = cmds.group(empty = True)
+        #     cmds.parent(duplicateTransform, emptyGroup, absolute = True)
+        #
+        #     scaleAttr = 'scaleX'
+        #
+        #     if self.mirrorPlane == 'XZ':
+        #         scaleAttr = 'scaleY'
+        #     elif self.mirrorPlane == 'XY':
+        #         scaleAttr = 'scaleZ'
+        #
+        #     cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
+        #
+        #     # cmds.setAttr(f'{self.orientationConnectorsGrp}.{scaleAttr}', -1)
+        #
+        #     parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
+        #     cmds.delete(parentConstraint)
+        #     cmds.delete(emptyGroup)
+        #
+        #     tempLocator = cmds.spaceLocator()[0]
+        #     scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
+        #     scale = cmds.getAttr(f'{tempLocator}.scaleX')
+        #     cmds.delete([scaleConstraint, tempLocator])
+        #
+        #     cmds.xform(self.moduleTransform, objectSpace = True, scale = [scale, scale, scale])
+
+        utils.addNodeToContainer(container = self.containerName, nodesIn = [self.moduleTransform], includeHierarchyBelow = True)
+
+        # Setup global scaling
+        cmds.connectAttr(f'{self.moduleTransform}.scaleY', f'{self.moduleTransform}.scaleX')
+        cmds.connectAttr(f'{self.moduleTransform}.scaleY', f'{self.moduleTransform}.scaleZ')
+
+        cmds.aliasAttr('globalScale', f'{self.moduleTransform}.scaleY')
+
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.translate', 'moduleTransform_Translate'))
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.rotate', 'moduleTransform_Rotate'))
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.globalScale', 'moduleTransform_globalScale'))
+
+    def createHierarchyConnector(self, parentJoint, childJoint):
+        container, connector, constrainedGrp = utils.createHierarchyConnector(parentJoint)
+
+        parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)
+
+        cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
+
+        scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
+
+        utils.addNodeToContainer(container = container, nodesIn = [parentConstraint, scaleConstraint], includeHierarchyBelow = True)
+        utils.addNodeToContainer(container = self.containerName, nodesIn = [container])
+
+        cmds.parent(constrainedGrp, self.hierarchyConnectorsGrp, relative = True)
+
+        self.hierarchyContainer = container
+        self.hierarchyConnector = connector
+
+        # constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstrainedGrp')
+        # cmds.parent(connector, constrainedGrp, absolute = True)
 
 
 
@@ -578,132 +666,100 @@ class Blueprint:
         #     cmds.parent(node, self.jointsGrp, absolute = True)
         #     cmds.setAttr(f'{node}.visibility', 1)
 
-    def initializeModuleTransform(self, position):
-        """
-        Creates and initializes the main transform for the module.
+    def createOrientationConnector(self, parentJoint, childJoint):
+        cmds.delete(self.hierarchyContainer)
 
-        This transform serves as the root for all module components and allows
-        for easy manipulation of the entire module.
+        container, connector, constrainedGrp = utils.createOrientationConnector(parentJoint)
 
-        Args:
-            position (list): A list of three floats [x, y, z] representing the initial
-                             world space position of the module transform.
-        """
+        parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)
 
-        self.moduleTransform = utils.createModuleTransformControl(name = f'{self.moduleNamespace}:module_transform')  # Create an empty group to serve as the module's main transform.
-
-        cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = position)  # Set its world space position.
-
-        if self.mirrored:
-
-            duplicateTransform = cmds.duplicate(f'{self.originalModule}:module_transform', parentOnly = True, name = 'TEMP_TRANSFORM')[0]
-            emptyGroup = cmds.group(empty = True)
-            cmds.parent(duplicateTransform, emptyGroup, absolute = True)
-
-            scaleAttr = 'scaleX'
-
-            if self.mirrorPlane == 'XZ':
-                scaleAttr = 'scaleY'
-            elif self.mirrorPlane == 'XY':
-                scaleAttr = 'scaleZ'
-
-            cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
-
-            # cmds.setAttr(f'{self.orientationConnectorsGrp}.{scaleAttr}', -1)
-
-            parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
-            cmds.delete(parentConstraint)
-            cmds.delete(emptyGroup)
-
-            tempLocator = cmds.spaceLocator()[0]
-            scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
-            scale = cmds.getAttr(f'{tempLocator}.scaleX')
-            cmds.delete([scaleConstraint, tempLocator])
-
-            cmds.xform(self.moduleTransform, objectSpace = True, scale = [scale, scale, scale])
-
-        utils.addNodeToContainer(self.containerName, self.moduleTransform, includeHierarchyBelow = True)
-
-        # Setup global scaling
-        cmds.connectAttr(f'{self.moduleTransform}.scaleY', f'{self.moduleTransform}.scaleX')
-        cmds.connectAttr(f'{self.moduleTransform}.scaleY', f'{self.moduleTransform}.scaleZ')
-
-        cmds.aliasAttr('globalScale', f'{self.moduleTransform}.scaleY')
-
-        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.translate', 'moduleTransform_T'))
-        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.rotate', 'moduleTransform_R'))
-        cmds.container(self.containerName, edit = True, publishAndBind = (f'{self.moduleTransform}.globalScale', 'moduleTransform_globalScale'))
-
-    def createConnector(self, connectorType, name, parentJoint, childJoint):
-        """
-        Creates a visual connector between two joints, typically used to represent hierarchy links.
-
-        This function creates a stretchy visual object between the parent and child joints
-        using the specified connector type, then parents the resulting visual representation under the provided group.
-
-        Args:
-            connectorType (str): The type of visual connection to create (e.g., 'hierarchy', 'orientation').
-            parentGrp (str): The transform node under which the connector should be parented.
-            parentJoint (str): The name of the starting joint of the connection.
-            childJoint (str): The name of the ending joint of the connection.
-
-        Returns:
-            list: A list containing:
-                - container (str): The name of the container node for the created objects.
-                - control (str): The name of the main control or geometry created.
-                - constrainedGrp (str): The name of the group constrained between the two joints.
-        """
-
-        if connectorType == 'orientation':
-            container, connector = utils.createOrientationConnector(name)
-            parentGrp = self.moduleTransform
-
-        elif connectorType == 'hierarchy':
-            container, connector = utils.createHierarchyConnector(name)
-            parentGrp = self.hierarchyConnectorsGrp
-
-        elif connectorType == 'hook':
-            container, connector = utils.createHookConnector(name)
-            parentGrp = None
-
-        constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstraint_grp')
-        cmds.parent(connector, constrainedGrp, absolute = True)
-        parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)[0]
-
-        # Connect translateX to scaleX to drive stretch.
         cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
 
         scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
 
-        if parentGrp:
-            cmds.parent(constrainedGrp, parentGrp, relative = True)
+        utils.addNodeToContainer(container = container, nodesIn = [parentConstraint, scaleConstraint], includeHierarchyBelow = True)
+        utils.addNodeToContainer(container = self.containerName, nodesIn = [container])
 
-        # Add to containers.
-        utils.addNodeToContainer(container, [constrainedGrp, parentConstraint, scaleConstraint], includeHierarchyBelow = True)
-        utils.addNodeToContainer(self.containerName, container)
+        cmds.parent(constrainedGrp, self.orientationConnectorsGrp, relative = True)
 
-        # Parent the visual representation group under the hierarchy group.
-        if connectorType == 'orientation':
-            niceName = utils.stripLeadingNamespace(parentJoint)[1]
-            attrName = f'{niceName}_orientation'
-            cmds.container(container, edit = True, publishAndBind = (f'{connector}.rotateX', attrName))
-            cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
+        self.orientationContainer = container
+        self.orientationConnector = connector
 
-        return [container, connector, constrainedGrp]
+        shortName = utils.stripAllNamespaces(parentJoint)[1]
+        attrName = f'{shortName}_orientation'
+
+        cmds.container(container, edit = True, publishAndBind = (f'{connector}.rotateX', attrName))
+        cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
+
+
+    # def createConnector(self, connectorType, name, parentJoint, childJoint):
+    #     """
+    #     Creates a visual connector between two joints, typically used to represent hierarchy links.
+    #
+    #     This function creates a stretchy visual object between the parent and child joints
+    #     using the specified connector type, then parents the resulting visual representation under the provided group.
+    #
+    #     Args:
+    #         connectorType (str): The type of visual connection to create (e.g., 'hierarchy', 'orientation').
+    #         parentGrp (str): The transform node under which the connector should be parented.
+    #         parentJoint (str): The name of the starting joint of the connection.
+    #         childJoint (str): The name of the ending joint of the connection.
+    #
+    #     Returns:
+    #         list: A list containing:
+    #             - container (str): The name of the container node for the created objects.
+    #             - control (str): The name of the main control or geometry created.
+    #             - constrainedGrp (str): The name of the group constrained between the two joints.
+    #     """
+    #
+    #     if connectorType == 'orientation':
+    #         container, connector = utils.createOrientationConnector(name)
+    #         parentGrp = self.moduleTransform
+    #
+    #     elif connectorType == 'hierarchy':
+    #         container, connector = utils.createHierarchyConnector(name)
+    #         parentGrp = self.hierarchyConnectorsGrp
+    #
+    #     elif connectorType == 'hook':
+    #         container, connector = utils.createHookConnector(name)
+    #         parentGrp = None
+    #
+    #     constrainedGrp = cmds.group(empty = True, name = f'{connector}_parentConstraint_grp')
+    #     cmds.parent(connector, constrainedGrp, absolute = True)
+    #     parentConstraint = cmds.parentConstraint(parentJoint, constrainedGrp, maintainOffset = False)[0]
+    #
+    #     # Connect translateX to scaleX to drive stretch.
+    #     cmds.connectAttr(f'{childJoint}.translateX', f'{constrainedGrp}.scaleX')
+    #
+    #     scaleConstraint = cmds.scaleConstraint(self.moduleTransform, constrainedGrp, skip = ['x'], maintainOffset = False)[0]
+    #
+    #     if parentGrp:
+    #         cmds.parent(constrainedGrp, parentGrp, relative = True)
+    #
+    #     # Add to containers.
+    #     utils.addNodeToContainer(container, [constrainedGrp, parentConstraint, scaleConstraint], includeHierarchyBelow = True)
+    #     utils.addNodeToContainer(self.containerName, container)
+    #
+    #     # Parent the visual representation group under the hierarchy group.
+    #     if connectorType == 'orientation':
+    #         niceName = utils.stripLeadingNamespace(parentJoint)[1]
+    #         attrName = f'{niceName}_orientation'
+    #         cmds.container(container, edit = True, publishAndBind = (f'{connector}.rotateX', attrName))
+    #         cmds.container(self.containerName, edit = True, publishAndBind = (f'{container}.{attrName}', attrName))
+    #
+    #     return [container, connector, constrainedGrp]
 
     def getJoints(self):
         jointBaseName = f'{self.moduleNamespace}:'
-        joints = []
 
-        for jointInfo in self.jointInfo:
-            joints.append(f'{jointBaseName}{jointInfo[0]}')
-
-        return joints
+        return [f'{jointBaseName}{joint[0]}' for joint in self.jointInfo]
 
     def orientationControlledJoint_getOrientation(self, joint, cleanParent):
         newCleanParent = cmds.duplicate(joint, parentOnly = True)[0]
 
-        if not cleanParent in cmds.listRelatives(newCleanParent, parent = True):
+        currentParent = cmds.listRelatives(newCleanParent, parent = True)
+
+        if not cleanParent or cleanParent not in currentParent:
             cmds.parent(newCleanParent, cleanParent, absolute = True)
 
         cmds.makeIdentity(newCleanParent, apply = True, rotate = True, scale = False, translate = False)
@@ -807,7 +863,7 @@ class Blueprint:
         cmds.namespace(setNamespace = ':')
         cmds.namespace(removeNamespace = self.moduleNamespace)
 
-        if moduleTransformParent != None:
+        if moduleTransformParent:
             parentGroup = moduleTransformParent[0]
 
             children = cmds.listRelatives(parentGroup, children = True)
@@ -851,7 +907,7 @@ class Blueprint:
 
         cmds.setAttr(f'{unhookedLocator}.visibility', 0)
 
-        if self.hookObject is None:
+        if not self.hookObject:
             self.hookObject = unhookedLocator
 
         rootPos = cmds.xform(rootTranslationControl, query = True, worldSpace = True, translation = True)
