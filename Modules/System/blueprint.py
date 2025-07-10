@@ -162,6 +162,12 @@ class Blueprint:
 
         rootTransform = moduleInfo[5]
 
+        mirrorInfo = None
+        oldModuleGrp = f'{self.moduleNamespace}:module_grp'
+
+        if cmds.attributeQuery('mirrorInfo', node = oldModuleGrp, exists = True):
+            mirrorInfo = cmds.getAttr(f'{oldModuleGrp}.mirrorInfo')
+
         cmds.lockNode(self.containerName, lock = False, lockUnpublished = False)  # Delete blueprint controls and unlock the container.
 
         cmds.delete(self.containerName)
@@ -324,6 +330,13 @@ class Blueprint:
 
         cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.activeModule', 'activeModule'))  # Publish attributes from the settings locator to the module container.
         cmds.container(moduleContainer, edit = True, publishAndBind = (f'{settingsLocator}.creationPoseWeight', 'creationPoseWeight'))
+
+        if mirrorInfo:
+            enumNames = 'node:x:y:z'
+            print(moduleGrp)
+            cmds.addAttr(moduleGrp, attributeType = 'enum', enumName = enumNames, longName = 'mirrorInfo', keyable = False)
+            cmds.setAttr(f'{moduleGrp}.mirrorInfo', mirrorInfo)
+            print(cmds.getAttr(f'{moduleGrp}.mirrorInfo'))
 
         cmds.select(moduleGrp)
         cmds.addAttr(attributeType = 'float', longName = 'hierarchicalScale')
@@ -736,6 +749,16 @@ class Blueprint:
             moduleInstance = moduleClass(module[1], None)
             moduleInstance.rehook(None)
 
+        if cmds.attributeQuery('mirrorLinks', node = f'{self.moduleNamespace}:module_grp', exists = True):
+            mirrorLinks = cmds.getAttr(f'{self.moduleNamespace}:module_grp.mirrorLinks')
+
+            linkedBlueprint = mirrorLinks.rpartition('__')[0]
+            cmds.lockNode(f'{linkedBlueprint}:module_container', lock = False, lockUnpublished = False)
+
+            cmds.deleteAttr(f'{linkedBlueprint}:module_grp.mirrorLinks')
+
+            cmds.lockNode(f'{linkedBlueprint}:module_container', lock = True, lockUnpublished = True)
+
         moduleTransform = f'{self.moduleNamespace}:module_transform'
         moduleTransformParent = cmds.listRelatives(moduleTransform, parent = True)
 
@@ -775,6 +798,18 @@ class Blueprint:
 
             cmds.namespace(moveNamespace = [self.moduleNamespace, newNamespace])
             cmds.namespace(removeNamespace = self.moduleNamespace)
+
+            if cmds.attributeQuery('mirrorLinks', node = f'{newNamespace}:module_grp', exists = True):
+                mirrorLinks = cmds.getAttr(f'{newNamespace}:module_grp.mirrorLinks')
+                nodeAndAxis = mirrorLinks.rpartition('__')
+                node = nodeAndAxis[0]
+                axis = nodeAndAxis[2]
+
+                cmds.lockNode(f'{node}:module_container', lock = False, lockUnpublished = False)
+
+                cmds.setAttr(f'{node}:module_grp.mirrorLinks', f'{newNamespace}__{axis}', type = 'string')
+
+                cmds.lockNode(f'{node}:module_container', lock = True, lockUnpublished = True)
 
             self.moduleNamespace = newNamespace
             self.containerName = f'{newNamespace}:module_container'

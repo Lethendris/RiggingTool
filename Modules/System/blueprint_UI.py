@@ -751,51 +751,52 @@ class Blueprint_UI(QtWidgets.QDialog):
         if reply == QtWidgets.QMessageBox.Cancel:
             return
 
-        else:
-            moduleInfo = []
+        self.deleteScriptJob()
 
-            cmds.namespace(setNamespace = ':')
-            namespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
+        moduleInfo = []
 
-            validModules = [module for module in utils.loadAllModulesFromDirectory(self.modulesDir).keys()]
-            validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(self.modulesDir).values()]
+        cmds.namespace(setNamespace = ':')
+        namespaces = cmds.namespaceInfo(listOnlyNamespaces = True)
 
-            for namespace in namespaces:
-                moduleName, sep, userSpecifiedName = namespace.partition('__')
+        validModules = [module for module in utils.loadAllModulesFromDirectory(self.modulesDir).keys()]
+        validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(self.modulesDir).values()]
 
-                if sep and moduleName in validModuleNames:
-                    index = validModuleNames.index(moduleName)
-                    moduleInfo.append([validModules[index], userSpecifiedName])
+        for namespace in namespaces:
+            moduleName, sep, userSpecifiedName = namespace.partition('__')
 
-            if len(moduleInfo) == 0:
-                msg = QtWidgets.QMessageBox()
-                msg.setWindowTitle("Lock Blueprints?")
-                msg.setText('<div align="center">There is no blueprint module instance in the current scene.<br>Aborting Lock.</div>')
-                msg.setIcon(QtWidgets.QMessageBox.NoIcon)  # <-- Removes the icon
-                msg.exec_()
+            if sep and moduleName in validModuleNames:
+                index = validModuleNames.index(moduleName)
+                moduleInfo.append([validModules[index], userSpecifiedName])
 
-            moduleInstances = []
+        if len(moduleInfo) == 0:
+            msg = QtWidgets.QMessageBox()
+            msg.setWindowTitle("Lock Blueprints?")
+            msg.setText('<div align="center">There is no blueprint module instance in the current scene.<br>Aborting Lock.</div>')
+            msg.setIcon(QtWidgets.QMessageBox.NoIcon)  # <-- Removes the icon
+            msg.exec_()
 
-            for module, userSpecifiedName in moduleInfo:
-                mod = importlib.import_module(f'Blueprint.{module}')
-                importlib.reload(mod)
+        moduleInstances = []
 
-                moduleClass = getattr(mod, mod.CLASS_NAME)
-                moduleInstance = moduleClass(userSpecifiedName, None)
-                moduleInfo = moduleInstance.lockPhase1() # [[positions]], ([(orientationValues)], parent), jointRotationOrders, jointPreferredAngles, hookObject, rootTransform
-                moduleInstances.append((moduleInstance, moduleInfo))
+        for module, userSpecifiedName in moduleInfo:
+            mod = importlib.import_module(f'Blueprint.{module}')
+            importlib.reload(mod)
 
-            for module, moduleInfo in moduleInstances:
-                module.lockPhase2(moduleInfo)
+            moduleClass = getattr(mod, mod.CLASS_NAME)
+            moduleInstance = moduleClass(userSpecifiedName, None)
+            moduleInfo = moduleInstance.lockPhase1() # [[positions]], ([(orientationValues)], parent), jointRotationOrders, jointPreferredAngles, hookObject, rootTransform
+            moduleInstances.append((moduleInstance, moduleInfo))
 
-            groupContainer = 'Group_container'
-            if cmds.objExists(groupContainer):
-                cmds.lockNode(groupContainer, lock = False, lockUnpublished = False)
-                cmds.delete(groupContainer)
+        for module, moduleInfo in moduleInstances:
+            module.lockPhase2(moduleInfo)
 
-            for module in moduleInstances:
-                hookObject = module[1][4]
-                module[0].lockPhase3(hookObject)
+        groupContainer = 'Group_container'
+        if cmds.objExists(groupContainer):
+            cmds.lockNode(groupContainer, lock = False, lockUnpublished = False)
+            cmds.delete(groupContainer)
+
+        for module in moduleInstances:
+            hookObject = module[1][4]
+            module[0].lockPhase3(hookObject)
 
     def groupSelected(self):
         import System.groupSelected as groupSelected
