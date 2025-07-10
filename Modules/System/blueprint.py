@@ -1007,9 +1007,7 @@ class Blueprint:
         cmds.addAttr(attributeType = 'enum', enumName = enumNames, longName = 'mirrorInfo', keyable = False)
 
         enumValue = 0
-        print(translationFunction)
         if translationFunction == 'Mirrored':
-            print('asd')
             if mirrorPlane == 'YZ':
                 enumValue = 1
             elif mirrorPlane == 'XZ':

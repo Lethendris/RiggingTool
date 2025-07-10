@@ -33,6 +33,7 @@ class MirrorProgressDialog(QtWidgets.QDialog):
         QtWidgets.QApplication.processEvents() # Process events to update UI
 
 class MirrorModule(QtWidgets.QDialog):
+
     def __init__(self, parent = None):  # Accept the parent UI instance
 
         super().__init__(parent)
@@ -244,7 +245,7 @@ class MirrorModule(QtWidgets.QDialog):
         phase3_proportion = 15
 
         mirrorProgressDialog.updateProgress(5, "Collecting module data...")
-        time.sleep(0.1)  # Simulate a small delay
+        # time.sleep(0.1)  # Simulate a small delay
 
 
         blueprintsFolder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Blueprint')
@@ -300,7 +301,7 @@ class MirrorModule(QtWidgets.QDialog):
             mirrorModulesProgress += mirrorModulesProgress_increment
             progressMessage = f"Mirroring: {module[0]}"
             mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
-            time.sleep(0.1)
+            # time.sleep(0.1)
 
         mirrorModulesProgress_increment = phase2_proportion / len(self.moduleInfo)
 
@@ -316,7 +317,7 @@ class MirrorModule(QtWidgets.QDialog):
             mirrorModulesProgress += mirrorModulesProgress_increment
 
             progressMessage = f"Mirroring: {module[0]}"
-            mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
+            # mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
             # time.sleep(0.1)
 
         mirrorModulesProgress_increment = phase3_proportion / len(self.moduleInfo)
@@ -338,11 +339,23 @@ class MirrorModule(QtWidgets.QDialog):
             mirrorModulesProgress += mirrorModulesProgress_increment
             mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
 
+        # if self.group:
+        #     cmds.lockNode('Group_container', lock = False, lockUnpublished = False)
+        #
+        #     groupParent = cmds.listRelatives(self.group, parent = True)
+        #
+        #     if groupParent:
+        #         groupParent = groupParent[0]
+        #
+        #     self.processGroup(self.group, groupParent)
+        #
+        #     cmds.lockNode('Group_container', lock = True, lockUnpublished = True)
+        #
+        #     cmds.select(clear = True)
 
         mirrorProgressDialog.updateProgress(100, "Mirroring complete!")
         time.sleep(1)  # Give user time to read "complete"
         mirrorProgressDialog.close()
-
 
     def generateMirrorFunctionControls(self, parentLayout, moduleName):
         """
@@ -459,6 +472,24 @@ class MirrorModule(QtWidgets.QDialog):
                         returnModules.append(module)
 
         return returnModules
+
+    def processGroup(self, group, parent):
+        import System.groupSelected as groupSelected
+        importlib.reload(groupSelected)
+
+        tempGroup = cmds.duplicate(group, parentOnly = True, inputConnections = True)[0]
+        emptyGroup = cmds.group(empty = True)
+
+        parent(tempGroup, emptyGroup, absolute = True)
+        scaleAxis = 'scaleX'
+
+        if self.mirrorPlane == 'XZ':
+            scaleAxis = 'scaleY'
+
+        elif self.mirrorPlane == 'XY':
+            scaleAxis = 'scaleZ'
+
+        cmds.setAttr(f'{emptyGroup}.{scaleAxis}', -1)
 
 
 

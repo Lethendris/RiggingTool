@@ -18,16 +18,10 @@ class GroupSelectedDialog(QtWidgets.QDialog):
         self.setObjectName("GroupSelectedDialog")
         self.setFixedSize(300, 150)
 
-        self.objectsToGroup = []  # Initialize the list of objects to be grouped
+        self.objectsToGroup = []
+        self.tempGroupTransform = None
 
         self.setupUI()
-
-        self.findSelectionToGroup()
-        self.createTemporaryGroupRepresentation()
-        self.createAtLastSelected()
-
-        cmds.select(self.tempGroupTransform)
-        cmds.setToolTo('moveSuperContext')
 
 
     def setupUI(self):
@@ -79,10 +73,26 @@ class GroupSelectedDialog(QtWidgets.QDialog):
         self.lastSelectedButton.clicked.connect(self.createAtLastSelected)
         self.averagePositionButton.clicked.connect(self.createAtAveragePosition)
 
+    def initializeSceneData(self):
+        if not self.findSelectionToGroup():
+            # If no valid objects are found to group, return False
+            return False
+
+        self.createTemporaryGroupRepresentation()
+        self.createAtLastSelected()
+
+        # Select the temporary group and set the move tool
+        cmds.select(self.tempGroupTransform)
+        cmds.setToolTo('moveSuperContext')
+
+        return True
+
+
     def reject(self):
         super().reject()
 
-        cmds.delete(self.tempGroupTransform)
+        if self.tempGroupTransform and cmds.objExists(self.tempGroupTransform):
+            cmds.delete(self.tempGroupTransform)
 
 
     def accept(self):
@@ -116,7 +126,8 @@ class GroupSelectedDialog(QtWidgets.QDialog):
             containers.append(f'{objNamespace}:module_container')
 
         for c in containers:
-            cmds.lockNode(c, lock = False, lockUnpublished = False)
+            if cmds.objExists(c):
+                cmds.lockNode(c, lock = False, lockUnpublished = False)
 
         if self.objectsToGroup:
             tempGroup = cmds.group(self.objectsToGroup, absolute = True)
@@ -133,7 +144,8 @@ class GroupSelectedDialog(QtWidgets.QDialog):
         self.addGroupToContainer(groupTransform)
 
         for c in containers:
-            cmds.lockNode(c, lock = True, lockUnpublished = True)
+            if cmds.objExists(c):
+                cmds.lockNode(c, lock = True, lockUnpublished = True)
 
         cmds.setToolTo('moveSuperContext')
         cmds.select(groupTransform, replace = True)
@@ -141,16 +153,24 @@ class GroupSelectedDialog(QtWidgets.QDialog):
         return groupTransform
 
     def addGroupToContainer(self, group):
+        """
+        Adds the newly created group and its attributes to the main group container.
+        """
         groupContainer = 'Group_container'
         utils.addNodeToContainer(container = groupContainer, nodesIn = [group])
 
         groupName = group.partition('Group__')[2]
 
-        cmds.container(groupContainer, edit = True, publishAndBind = (f'{group}.translate', f'{groupName}_t'))
-        cmds.container(groupContainer, edit = True, publishAndBind = (f'{group}.rotate', f'{groupName}_r'))
+        cmds.container(groupContainer, edit = True, publishAndBind = (f'{group}.translate', f'{groupName}_translate'))
+        cmds.container(groupContainer, edit = True, publishAndBind = (f'{group}.rotate', f'{groupName}_rotate'))
         cmds.container(groupContainer, edit = True, publishAndBind = (f'{group}.globalScale', f'{groupName}_globalScale'))
 
     def findSelectionToGroup(self):
+        """
+        Finds valid module transforms or existing groups from the current selection.
+        Returns True if valid objects are found, otherwise False.
+        """
+
         selectedObjects = cmds.ls(selection = True, transforms = True)
 
         self.objectsToGroup = []
@@ -159,7 +179,13 @@ class GroupSelectedDialog(QtWidgets.QDialog):
             if obj.endswith('module_transform') or obj.startswith('Group__'):
                 self.objectsToGroup.append(obj)
 
+        return bool(self.objectsToGroup)
+
     def createTemporaryGroupRepresentation(self):
+        """
+        Creates a temporary visual representation for the group being created.
+        """
+
         self.tempGroupTransform = utils.createModuleTransformControl('Group__tempGroupTransform__')
 
         cmds.connectAttr(f'{self.tempGroupTransform}.scaleY', f'{self.tempGroupTransform}.scaleX')
@@ -171,10 +197,24 @@ class GroupSelectedDialog(QtWidgets.QDialog):
         cmds.aliasAttr('globalScale', f'{self.tempGroupTransform}.scaleY')
 
     def createAtLastSelected(self):
+        """
+        Positions the temporary group at the location of the last selected object.
+        """
+
+        if not self.objectsToGroup:
+            return
+
         controlPos = cmds.xform(f'{self.objectsToGroup[len(self.objectsToGroup) - 1]}', query = True, worldSpace = True, translation = True)
         cmds.xform(self.tempGroupTransform, worldSpace = True, absolute = True, translation = controlPos)
 
     def createAtAveragePosition(self):
+        """
+        Positions the temporary group at the average position of all selected objects.
+        """
+
+        if not self.objectsToGroup:
+            return
+
         controlPos = [0.0, 0.0, 0.0]
 
         for obj in self.objectsToGroup:
@@ -193,6 +233,11 @@ class GroupSelectedDialog(QtWidgets.QDialog):
 
     @classmethod
     def showUI(cls, parent = None):
+        """
+        The main entry point for showing the dialog.
+        It handles instance creation, data initialization, and display.
+        """
+
         if cls._instance and cls._instance.isVisible():
             cls._instance.raise_()
             cls._instance.activateWindow()
@@ -203,7 +248,10 @@ class GroupSelectedDialog(QtWidgets.QDialog):
 
         cls._instance = cls(parent = parent)
 
-        if not cls._instance.objectsToGroup:
+        if not cls._instance.initializeSceneData():
+            print("No valid objects selected to group.")
+            cls._instance.deleteLater()
+            cls._instance = None
             return
 
         cls._instance.show()
