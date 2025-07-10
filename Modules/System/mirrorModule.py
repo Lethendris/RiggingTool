@@ -10,8 +10,8 @@ import time
 importlib.reload(utils)
 
 class MirrorProgressDialog(QtWidgets.QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self, parentUI=None):
+        super().__init__(parentUI)
         self.setWindowTitle('Mirroring Progress')
         self.setFixedSize(300, 100)
         self.setWindowModality(QtCore.Qt.ApplicationModal) # Blocks all other windows
@@ -34,10 +34,10 @@ class MirrorProgressDialog(QtWidgets.QDialog):
 
 class MirrorModule(QtWidgets.QDialog):
 
-    def __init__(self, parent = None):  # Accept the parent UI instance
+    def __init__(self, parentUI = None):  # Accept the parent UI instance
 
-        super().__init__(parent)
-        self.parent = parent  # Store the parent UI
+        super().__init__(parentUI)
+        self.parentUI = parentUI  # Store the parent UI
 
         selection = cmds.ls(selection = True, transforms = True)
 
@@ -62,8 +62,9 @@ class MirrorModule(QtWidgets.QDialog):
         for module in self.modules:
             if self.isModuleMirror(module):
                 # Parent the message box to the main Maya window
-                QtWidgets.QMessageBox.information(parent, "Mirror Module(s)", 'Cannot mirror a previously mirrored module, aborting mirror.')
+                QtWidgets.QMessageBox.information(parentUI, "Mirror Module(s)", 'Cannot mirror a previously mirrored module, aborting mirror.')
                 return
+
             if not self.canModuleBeMirrored(module):
                 print(f'Module {module} is of a module type that can not be mirrored. Skipping module.')
             else:
@@ -76,6 +77,49 @@ class MirrorModule(QtWidgets.QDialog):
         if self.modules:
             self.showUI()
 
+    def findSubModules(self, group):
+        returnModules = []
+
+        children = cmds.listRelatives(group, children = True, type = 'transform')
+
+        if children:
+            for child in children:
+                if child.startswith('Group__'):
+                    returnModules.extend(self.findSubModules(child))
+                else:
+                    namespaceInfo = utils.stripAllNamespaces(child)
+                    if namespaceInfo and namespaceInfo[1] == 'module_transform':
+                        module = namespaceInfo[0]
+                        returnModules.append(module)
+
+        return returnModules
+
+    def canModuleBeMirrored(self, module):
+        blueprintsFolder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Blueprint')
+
+        validModules = [module for module in utils.loadAllModulesFromDirectory(blueprintsFolder).keys()]
+        validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(blueprintsFolder).values()]
+
+        moduleName = module.partition('__')[0]
+
+        if not moduleName in validModuleNames:
+            return False
+
+        index = validModuleNames.index(moduleName)
+        mod = importlib.import_module(f'Blueprint.{validModules[index]}')
+        importlib.reload(mod)
+
+        moduleClass = getattr(mod, mod.CLASS_NAME)
+        moduleInstance = moduleClass('null', None)
+
+        return moduleInstance.canModuleBeMirrored()
+
+    def isModuleMirror(self, module):
+        moduleGrp = f'{module}:module_grp'
+
+        return cmds.attributeQuery('mirrorLinks', node = moduleGrp, exists = True)
+
+
     def showUI(self):
         self.moduleNames = []
 
@@ -85,7 +129,7 @@ class MirrorModule(QtWidgets.QDialog):
         self.sameMirrorSettingsForAll = False
 
         if len(self.modules) > 1:
-            msgBox = QtWidgets.QMessageBox(parent = self.parent)  # Parent the message box
+            msgBox = QtWidgets.QMessageBox(parent = self.parentUI)  # Parent the message box
             msgBox.setWindowTitle("Mirror Multiple Modules")
             msgBox.setText(f"{len(self.modules)} modules are selected. Do you want to mirror them all the same way or set each one individually?")
             msgBox.setIcon(QtWidgets.QMessageBox.Question)
@@ -235,7 +279,7 @@ class MirrorModule(QtWidgets.QDialog):
 
     def mirrorModules(self):
 
-        mirrorProgressDialog = MirrorProgressDialog(parent = self.parent)
+        mirrorProgressDialog = MirrorProgressDialog(parentUI = self.parentUI)
         mirrorProgressDialog.show()
 
         mirrorModulesProgress = 0
@@ -299,7 +343,7 @@ class MirrorModule(QtWidgets.QDialog):
             module.append(hookConstrained)
 
             mirrorModulesProgress += mirrorModulesProgress_increment
-            progressMessage = f"Mirroring: {module[0]}"
+            progressMessage = f"Mirroring Phase 1: {module[0]}"
             mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
             # time.sleep(0.1)
 
@@ -316,9 +360,9 @@ class MirrorModule(QtWidgets.QDialog):
 
             mirrorModulesProgress += mirrorModulesProgress_increment
 
-            progressMessage = f"Mirroring: {module[0]}"
-            # mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
-            # time.sleep(0.1)
+            progressMessage = f"Mirroring Phase 2: {module[0]}"
+            mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
+            time.sleep(0.1)
 
         mirrorModulesProgress_increment = phase3_proportion / len(self.moduleInfo)
 
@@ -337,21 +381,24 @@ class MirrorModule(QtWidgets.QDialog):
                 moduleInstance.constrainRootToHook()
 
             mirrorModulesProgress += mirrorModulesProgress_increment
+            progressMessage = f"Mirroring Phase 3: {module[0]}"
             mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
+            time.sleep(0.1)
 
-        # if self.group:
-        #     cmds.lockNode('Group_container', lock = False, lockUnpublished = False)
-        #
-        #     groupParent = cmds.listRelatives(self.group, parent = True)
-        #
-        #     if groupParent:
-        #         groupParent = groupParent[0]
-        #
-        #     self.processGroup(self.group, groupParent)
-        #
-        #     cmds.lockNode('Group_container', lock = True, lockUnpublished = True)
-        #
-        #     cmds.select(clear = True)
+        if self.group:
+            cmds.lockNode('Group_container', lock = False, lockUnpublished = False)
+
+            groupParent = cmds.listRelatives(self.group, parent = True)
+
+
+            if groupParent:
+                groupParent = groupParent[0]
+
+            self.processGroup(self.group, groupParent)
+
+            cmds.lockNode('Group_container', lock = True, lockUnpublished = True)
+
+            cmds.select(clear = True)
 
         mirrorProgressDialog.updateProgress(100, "Mirroring complete!")
         time.sleep(1)  # Give user time to read "complete"
@@ -427,51 +474,6 @@ class MirrorModule(QtWidgets.QDialog):
                 'rotationButtonGroup': self.rotationButtonGroup
             }
 
-    def canModuleBeMirrored(self, module):
-        blueprintsFolder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'Blueprint')
-
-        validModules = [module for module in utils.loadAllModulesFromDirectory(blueprintsFolder).keys()]
-        validModuleNames = [module['name'] for module in utils.loadAllModulesFromDirectory(blueprintsFolder).values()]
-
-        moduleName = module.partition('__')[0]
-
-        if not moduleName in validModuleNames:
-            return False
-
-        index = validModuleNames.index(moduleName)
-        mod = importlib.import_module(f'Blueprint.{validModules[index]}')
-        importlib.reload(mod)
-
-        moduleClass = getattr(mod, mod.CLASS_NAME)
-        moduleInstance = moduleClass('null', None)
-
-        # Check if the method exists before calling
-        if hasattr(moduleInstance, 'canModuleBeMirrored'):
-            return moduleInstance.canModuleBeMirrored()
-        return False  # Default to False if method doesn't exist
-
-    def isModuleMirror(self, module):
-        moduleGrp = f'{module}:module_grp'
-        if cmds.objExists(moduleGrp):
-            return cmds.attributeQuery('mirrorLinks', node = moduleGrp, exists = True)
-        return False
-
-    def findSubModules(self, group):
-        returnModules = []
-
-        children = cmds.listRelatives(group, children = True, type = 'transform')
-
-        if children:
-            for child in children:
-                if child.startswith('Group__'):
-                    returnModules.extend(self.findSubModules(child))
-                else:
-                    namespaceInfo = utils.stripAllNamespaces(child)
-                    if namespaceInfo and namespaceInfo[1] == 'module_transform':
-                        module = namespaceInfo[0]
-                        returnModules.append(module)
-
-        return returnModules
 
     def processGroup(self, group, parent):
         import System.groupSelected as groupSelected
@@ -480,7 +482,7 @@ class MirrorModule(QtWidgets.QDialog):
         tempGroup = cmds.duplicate(group, parentOnly = True, inputConnections = True)[0]
         emptyGroup = cmds.group(empty = True)
 
-        parent(tempGroup, emptyGroup, absolute = True)
+        cmds.parent(tempGroup, emptyGroup, absolute = True)
         scaleAxis = 'scaleX'
 
         if self.mirrorPlane == 'XZ':
@@ -490,6 +492,49 @@ class MirrorModule(QtWidgets.QDialog):
             scaleAxis = 'scaleZ'
 
         cmds.setAttr(f'{emptyGroup}.{scaleAxis}', -1)
+
+        instance = groupSelected.GroupSelectedDialog()
+        groupSuffix = group.partition('__')[2]
+        newGroup = instance.createGroupAtSpecified(f'{groupSuffix}_mirror', tempGroup, parent)
+
+        cmds.lockNode('Group_container', lock = False, lockUnpublished = False)
+        cmds.delete(emptyGroup)
+
+        for moduleLink in ((group, newGroup), (newGroup, group)):
+            attributeValue = f'{moduleLink[1]}__'
+
+            if self.mirrorPlane == 'YZ':
+                attributeValue += 'X'
+            elif self.mirrorPlane == 'XZ':
+                attributeValue += 'Y'
+            elif self.mirrorPlane == 'XY':
+                attributeValue += 'Z'
+
+            cmds.addAttr(moduleLink[0], dataType = 'string', longName = 'mirrorLinks', keyable = False)
+            cmds.setAttr(f'{moduleLink[0]}.mirrorLinks', attributeValue, type = 'string')
+
+        cmds.select(clear = True)
+
+        children = cmds.listRelatives(group, children = True, type = 'transform')
+
+        for child in children:
+            if child.find('Group__') == 0:
+                self.processGroup(child, newGroup)
+
+            else:
+                childNamespaces = utils.stripAllNamespaces(child)
+                if childNamespaces and childNamespaces[1] == 'module_transform':
+                    for module in self.moduleInfo:
+                        if childNamespaces[0] == module[0]:
+                            moduleContainer = f'{module[1]}:module_container'
+                            cmds.lockNode(moduleContainer, lock = False, lockUnpublished = False)
+
+                            moduleTransform = f'{module[1]}:module_transform'
+                            cmds.parent(moduleTransform, newGroup, absolute = True)
+
+                            cmds.lockNode(moduleContainer, lock = True, lockUnpublished = True)
+
+
 
 
 

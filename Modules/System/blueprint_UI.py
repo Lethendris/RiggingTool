@@ -711,7 +711,7 @@ class Blueprint_UI(QtWidgets.QDialog):
     def mirrorSelection(self):
         import System.mirrorModule as mirrorModule
         importlib.reload(mirrorModule)
-        mirrorModule.MirrorModule(parent = self)
+        mirrorModule.MirrorModule(parentUI = self)
 
     def snapRootToHook(self):
         self.moduleInstance.snapRootToHook()

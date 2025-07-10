@@ -1032,7 +1032,6 @@ class Blueprint:
             elif mirrorPlane == 'XY':
                 attributeValue += 'Z'
 
-            cmds.select(moduleGroup)
             cmds.addAttr(moduleGroup, dataType = 'string', longName = linkedAttribute, keyable = False)
             cmds.setAttr(f'{moduleGroup}.{linkedAttribute}', attributeValue, type = 'string')
 
