@@ -269,9 +269,9 @@ class MirrorModule(QtWidgets.QDialog):
             importlib.reload(mod)
 
             moduleClass = getattr(mod, mod.CLASS_NAME)
-            moduleInst = moduleClass(userSpecifiedName, None)
+            moduleInstance = moduleClass(userSpecifiedName, None)
 
-            hookObject = moduleInst.findHookObject()
+            hookObject = moduleInstance.findHookObject()
             newHookObject = None
 
             hookModule = utils.stripLeadingNamespace(hookObject)[0]
@@ -294,7 +294,7 @@ class MirrorModule(QtWidgets.QDialog):
 
             module.append(newHookObject)
 
-            hookConstrained = moduleInst.isRootConstrained()
+            hookConstrained = moduleInstance.isRootConstrained()
             module.append(hookConstrained)
 
             mirrorModulesProgress += mirrorModulesProgress_increment
@@ -310,14 +310,34 @@ class MirrorModule(QtWidgets.QDialog):
             importlib.reload(mod)
 
             moduleClass = getattr(mod, mod.CLASS_NAME)
-            moduleInst = moduleClass(newUserSpecifiedName, None)
-            moduleInst.mirror(module[0], module[2], module[3], module[4])
+            moduleInstance = moduleClass(newUserSpecifiedName, None)
+            moduleInstance.mirror(module[0], module[2], module[3], module[4])
 
             mirrorModulesProgress += mirrorModulesProgress_increment
 
             progressMessage = f"Mirroring: {module[0]}"
             mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
-            time.sleep(0.1)
+            # time.sleep(0.1)
+
+        mirrorModulesProgress_increment = phase3_proportion / len(self.moduleInfo)
+
+        for module in self.moduleInfo:
+            newUserSpecifiedName = module[1].partition('__')[2]
+            mod = importlib.import_module(f'Blueprint.{module[5]}')
+            importlib.reload(mod)
+
+            moduleClass = getattr(mod, mod.CLASS_NAME)
+            moduleInstance = moduleClass(newUserSpecifiedName, None)
+
+            moduleInstance.rehook(module[6])
+
+            hookConstrained = module[7]
+            if hookConstrained:
+                moduleInstance.constrainRootToHook()
+
+            mirrorModulesProgress += mirrorModulesProgress_increment
+            mirrorProgressDialog.updateProgress(mirrorModulesProgress, progressMessage)
+
 
         mirrorProgressDialog.updateProgress(100, "Mirroring complete!")
         time.sleep(1)  # Give user time to read "complete"
@@ -410,11 +430,11 @@ class MirrorModule(QtWidgets.QDialog):
         importlib.reload(mod)
 
         moduleClass = getattr(mod, mod.CLASS_NAME)
-        moduleInst = moduleClass('null', None)
+        moduleInstance = moduleClass('null', None)
 
         # Check if the method exists before calling
-        if hasattr(moduleInst, 'canModuleBeMirrored'):
-            return moduleInst.canModuleBeMirrored()
+        if hasattr(moduleInstance, 'canModuleBeMirrored'):
+            return moduleInstance.canModuleBeMirrored()
         return False  # Default to False if method doesn't exist
 
     def isModuleMirror(self, module):

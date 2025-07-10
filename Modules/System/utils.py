@@ -562,12 +562,12 @@ def createOrientationConnector(name):
     """
 
     # Create Y axis object
-    y_cube = cmds.polyCube(name = f'{name}_y_cube', width = 1, height = 1, depth = 0.1, ch = False)[0]
+    y_cube = cmds.polyCube(name = f'{name}_y_cube', width = 1, height = 1, depth = 0.3, ch = False)[0]
     cmds.move(0.5, 0, 0, f'{y_cube}.f[5]', relative = True)
     cmds.move(0.5, 0, 0, f'{y_cube}.f[4]', relative = True)
 
 
-    y_cone = cmds.polyCone(name = f'{name}_y_cone', sx = 8, sy = 1, sz = 0, r = 0.05, h = 0.2, heightBaseline = -1, ch = False)[0]
+    y_cone = cmds.polyCone(name = f'{name}_y_cone', sx = 8, sy = 1, sz = 0, r = 0.15, h = 0.3, heightBaseline = -1, ch = False)[0]
     y_coneShape = cmds.listRelatives(y_cone, shapes = True, fullPath = True)
     cmds.move(0.5, 0.5, 0, f'{y_cone}.vtx[0:8]', relative = True)
 
@@ -577,12 +577,12 @@ def createOrientationConnector(name):
     y_material, y_materialInfo = assignMaterial(y_cube, color = (0, 1, 0), diffuse = 0.2)
 
     # Create Z axis object
-    z_cube = cmds.polyCube(name = f'{name}_z_cube', width = 1, height = 1, depth = 0.1, ch = False)[0]
+    z_cube = cmds.polyCube(name = f'{name}_z_cube', width = 1, height = 1, depth = 0.3, ch = False)[0]
     cmds.rotate(90, 0, 0, f'{z_cube}.vtx[0:7]', relative = True)
     cmds.move(0.5, 0, 0, f'{z_cube}.vtx[0:7]', relative = True)
 
 
-    z_cone = cmds.polyCone(name = f'{name}_z_cone', sx = 8, sy = 1, sz = 0, r = 0.05, h = 0.2, heightBaseline = -1, ch = False)[0]
+    z_cone = cmds.polyCone(name = f'{name}_z_cone', sx = 8, sy = 1, sz = 0, r = 0.15, h = 0.3, heightBaseline = -1, ch = False)[0]
     z_coneShape = cmds.listRelatives(z_cone, shapes = True, fullPath = True)
     cmds.rotate(90, 0, 0, f'{z_cone}.vtx[0:8]', relative = True, pivot = (0, 0, 0))
     cmds.move(0.5 , 0, 0.5, f'{z_cone}.vtx[0:8]', relative = True)

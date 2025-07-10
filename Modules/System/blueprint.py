@@ -102,6 +102,9 @@ class Blueprint:
         and widgets to the `parentLayout` provided in the `UI` method.
         """
 
+    def mirror_custom(self, originalModule):
+        print('mirror_custom() method is not implemented by derived class.')
+
     def lockPhase1(self):
         """
         First phase of the locking process for a blueprint module.
@@ -396,7 +399,6 @@ class Blueprint:
             mirrorXZ = self.mirrorPlane == 'XZ'
             mirrorBehavior = self.rotationFunction == 'Behavior'
 
-
             mirroredNodes = cmds.mirrorJoint(joints[0], mirrorXY = mirrorXY, mirrorYZ = mirrorYZ, mirrorXZ = mirrorXZ, mirrorBehavior = mirrorBehavior)
 
             cmds.delete(joints)
@@ -454,6 +456,9 @@ class Blueprint:
         utils.addNodeToContainer(container = self.containerName, nodesIn = [container])
 
         cmds.parent(control, self.moduleTransform, absolute = True)
+        scaleConstraint = cmds.scaleConstraint(self.moduleTransform, control, maintainOffset = False)[0]
+
+        utils.addNodeToContainer(container = container, nodesIn = [scaleConstraint], includeHierarchyBelow = True)
 
         jointPosition = cmds.xform(joint, query = True, worldSpace = True, translation = True)
         cmds.xform(control, worldSpace = True, absolute = True, translation = jointPosition)
@@ -538,18 +543,15 @@ class Blueprint:
 
             cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
 
-            # cmds.setAttr(f'{self.orientationConnectorsGrp}.{scaleAttr}', -1)
-
             parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
-            # parentConstraint2 = cmds.parentConstraint(duplicateTransform, self.orientationConnectorsGrp, maintainOffset = False)
-            cmds.delete(parentConstraint,)
+            cmds.delete(parentConstraint)
             cmds.delete(emptyGroup)
 
             tempLocator = cmds.spaceLocator()[0]
             scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
             scale = cmds.getAttr(f'{tempLocator}.scaleX')
 
-            cmds.delete([scaleConstraint, tempLocator])
+            cmds.delete(scaleConstraint, tempLocator)
 
             cmds.xform(self.moduleTransform, objectSpace = True, scale = (scale, scale, scale))
 
@@ -954,10 +956,8 @@ class Blueprint:
         index = 0
         for jointInfo in self.jointInfo:
             mirrorPoleVectorLocator = False
-            mirrorOrientationConnector = False
             if index < len(self.jointInfo) - 1:
                 mirrorPoleVectorLocator = True
-                mirrorOrientationConnector = True
 
             jointName = jointInfo[0]
 
@@ -997,5 +997,51 @@ class Blueprint:
                 cmds.xform(newPoleVectorLocator, worldSpace = True, absolute = True, translation = originalPoleVectorLocatorPosition)
 
             index += 1
+
+        self.mirror_custom(originalModule)
+
+        moduleGrp = f'{self.moduleNamespace}:module_grp'
+        cmds.select(moduleGrp, replace = True)
+
+        enumNames = 'none:x:y:z'
+        cmds.addAttr(attributeType = 'enum', enumName = enumNames, longName = 'mirrorInfo', keyable = False)
+
+        enumValue = 0
+        print(translationFunction)
+        if translationFunction == 'Mirrored':
+            print('asd')
+            if mirrorPlane == 'YZ':
+                enumValue = 1
+            elif mirrorPlane == 'XZ':
+                enumValue = 2
+            elif mirrorPlane == 'XY':
+                enumValue = 3
+
+        cmds.setAttr(f'{moduleGrp}.mirrorInfo', enumValue)
+
+        linkedAttribute = 'mirrorLinks'
+
+        cmds.lockNode(f'{originalModule}:module_container', lock = False, lockUnpublished = False)
+
+        for moduleLink in ((originalModule, self.moduleNamespace), (self.moduleNamespace, originalModule)):
+            moduleGroup = f'{moduleLink[0]}:module_grp'
+            attributeValue = f'{moduleLink[1]}__'
+
+            if mirrorPlane == 'YZ':
+                attributeValue += 'X'
+            elif mirrorPlane == 'XZ':
+                attributeValue += 'Y'
+            elif mirrorPlane == 'XY':
+                attributeValue += 'Z'
+
+            cmds.select(moduleGroup)
+            cmds.addAttr(moduleGroup, dataType = 'string', longName = linkedAttribute, keyable = False)
+            cmds.setAttr(f'{moduleGroup}.{linkedAttribute}', attributeValue, type = 'string')
+
+        for container in [f'{originalModule}:module_container', self.containerName]:
+            cmds.lockNode(container, lock = True, lockUnpublished = True)
+
+        cmds.select(clear = True)
+
 
         # cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)

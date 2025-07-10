@@ -23,6 +23,16 @@ class SingleJointSegment(blueprintMod.Blueprint):
 
         self.parentLayout.addLayout(layout)
 
+    def mirror_custom(self, originalModule):
+        jointName = self.jointInfo[0][0]
+        originalJoint = f'{originalModule}:{jointName}'
+        newJoint = f'{self.moduleNamespace}:{jointName}'
+
+        originalOrientationControl = self.getOrientationControl(originalJoint)
+        newOrientationControl = self.getOrientationControl(newJoint)
+
+        cmds.setAttr(f'{newOrientationControl}.rotateX', cmds.getAttr(f'{originalOrientationControl}.rotateX'))
+
     def lockPhase1(self):
         # Gather and return all required information from this module's control objects
         # joint positions = list of joint positions, from root down the hierarchy
@@ -53,7 +63,7 @@ class SingleJointSegment(blueprintMod.Blueprint):
         jointRotationOrders.append(cmds.getAttr(f'{joints[0]}.rotateOrder'))
 
         jointPreferredAngles = None
-        # hookObject = self.findHookObjectForLock()
+        hookObject = self.findHookObjectForLock()
         hookObject = None
         rootTransform = False
 
