@@ -4,10 +4,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4e0ec84c-d7a8-48a4-8ef5-71b6794a636b" name="Changes" comment="test">
+    <list default="true" id="4e0ec84c-d7a8-48a4-8ef5-71b6794a636b" name="Changes" comment="REWORK2">
+      <change afterPath="$PROJECT_DIR$/Modules/components/root.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Modules/components/spine.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Modules/core.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Modules/ik_solvers.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Modules/math_utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Modules/rig_core.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Modules/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_2025-06-24_6_03_p_m__[Changes]/shelved.patch" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_2025-06-24_6_03_p_m___Changes_.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_2025-06-25_9_42_a_m__[Changes]/shelved.patch" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_2025-06-25_9_42_a_m___Changes_.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Modules/Blueprint/singleJointSegment.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/Blueprint/singleJointSegment.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Modules/System/blueprint.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/System/blueprint.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Modules/System/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/System/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Modules/System/blueprint_UI.py" beforeDir="false" afterPath="$PROJECT_DIR$/Modules/System/blueprint_UI.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -54,22 +66,25 @@
     &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hakan/PycharmProjects/RiggingTool/.venv/Lib/site-packages/maya-stubs&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hakan/PycharmProjects/RiggingTool/Modules&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;inlay.hints&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.IDE.editor.colors.Language Defaults&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\haytac\PycharmProjects\RiggingTool\Modules\Blueprint" />
       <recent name="C:\Users\Hakan\PycharmProjects\RiggingTool\Modules" />
       <recent name="C:\Users\Hakan\PycharmProjects\RiggingTool\Modules\System" />
+      <recent name="C:\Users\haytac\PycharmProjects\RiggingTool\Modules\Blueprint" />
       <recent name="C:\Users\Hakan\PycharmProjects\RiggingTool\Modules\Blueprint" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Hakan\PycharmProjects\RiggingTool\Modules" />
     </key>
   </component>
   <component name="SharedIndexes">
@@ -89,38 +104,6 @@
       <updated>1748817807333</updated>
       <workItem from="1750864643010" duration="352000" />
       <workItem from="1750865016337" duration="13886000" />
-    </task>
-    <task id="LOCAL-00001" summary="test">
-      <option name="closed" value="true" />
-      <created>1748953192980</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1748953192980</updated>
-    </task>
-    <task id="LOCAL-00002" summary="test">
-      <option name="closed" value="true" />
-      <created>1749070270339</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1749070270339</updated>
-    </task>
-    <task id="LOCAL-00003" summary="test">
-      <option name="closed" value="true" />
-      <created>1749089158328</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1749089158328</updated>
-    </task>
-    <task id="LOCAL-00004" summary="test">
-      <option name="closed" value="true" />
-      <created>1749090490595</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1749090490595</updated>
     </task>
     <task id="LOCAL-00005" summary="test">
       <option name="closed" value="true" />
@@ -362,7 +345,159 @@
       <option name="project" value="LOCAL" />
       <updated>1750910506461</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="test">
+      <option name="closed" value="true" />
+      <created>1750940126422</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1750940126422</updated>
+    </task>
+    <task id="LOCAL-00036" summary="test">
+      <option name="closed" value="true" />
+      <created>1751029535605</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1751029535605</updated>
+    </task>
+    <task id="LOCAL-00037" summary="test">
+      <option name="closed" value="true" />
+      <created>1751054180152</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1751054180152</updated>
+    </task>
+    <task id="LOCAL-00038" summary="test">
+      <option name="closed" value="true" />
+      <created>1751070591148</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1751070591148</updated>
+    </task>
+    <task id="LOCAL-00039" summary="test">
+      <option name="closed" value="true" />
+      <created>1751204768851</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1751204768851</updated>
+    </task>
+    <task id="LOCAL-00040" summary="test">
+      <option name="closed" value="true" />
+      <created>1751253248766</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1751253248766</updated>
+    </task>
+    <task id="LOCAL-00041" summary="test">
+      <option name="closed" value="true" />
+      <created>1751257202979</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1751257202979</updated>
+    </task>
+    <task id="LOCAL-00042" summary="test">
+      <option name="closed" value="true" />
+      <created>1751295809823</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1751295809823</updated>
+    </task>
+    <task id="LOCAL-00043" summary="test">
+      <option name="closed" value="true" />
+      <created>1751375618881</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1751375618881</updated>
+    </task>
+    <task id="LOCAL-00044" summary="test">
+      <option name="closed" value="true" />
+      <created>1751513459013</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1751513459013</updated>
+    </task>
+    <task id="LOCAL-00045" summary="test">
+      <option name="closed" value="true" />
+      <created>1751821875006</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1751821875006</updated>
+    </task>
+    <task id="LOCAL-00046" summary="test">
+      <option name="closed" value="true" />
+      <created>1751900321328</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1751900321328</updated>
+    </task>
+    <task id="LOCAL-00047" summary="REWORK">
+      <option name="closed" value="true" />
+      <created>1751948836963</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1751948836963</updated>
+    </task>
+    <task id="LOCAL-00048" summary="REWORK2">
+      <option name="closed" value="true" />
+      <created>1752032519381</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1752032519381</updated>
+    </task>
+    <task id="LOCAL-00049" summary="REWORK2">
+      <option name="closed" value="true" />
+      <created>1752083782605</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1752083782605</updated>
+    </task>
+    <task id="LOCAL-00050" summary="REWORK2">
+      <option name="closed" value="true" />
+      <created>1752119504070</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1752119504070</updated>
+    </task>
+    <task id="LOCAL-00051" summary="REWORK2">
+      <option name="closed" value="true" />
+      <created>1752125544217</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1752125544217</updated>
+    </task>
+    <task id="LOCAL-00052" summary="REWORK2">
+      <option name="closed" value="true" />
+      <created>1752171651632</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1752171651632</updated>
+    </task>
+    <task id="LOCAL-00053" summary="REWORK2">
+      <option name="closed" value="true" />
+      <created>1752174567531</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1752174567531</updated>
+    </task>
+    <option name="localTasksCounter" value="54" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -381,6 +516,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="test" />
-    <option name="LAST_COMMIT_MESSAGE" value="test" />
+    <MESSAGE value="REWORK" />
+    <MESSAGE value="REWORK2" />
+    <option name="LAST_COMMIT_MESSAGE" value="REWORK2" />
   </component>
 </project>

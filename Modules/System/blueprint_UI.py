@@ -545,9 +545,9 @@ class Blueprint_UI(QtWidgets.QDialog):
             moduleInstance = moduleClass(userSpecifiedName, hookObj)
             moduleInstance.install()
 
-            moduleTransform = f'{moduleName}__{userSpecifiedName}:module_transform'
-            cmds.select(moduleTransform)
-            cmds.setToolTo('moveSuperContext')
+            # moduleTransform = f'{moduleName}__{userSpecifiedName}:module_transform'
+            # cmds.select(moduleTransform)
+            # cmds.setToolTo('moveSuperContext')
 
     def findHookObjectFromSelection(self):
         selectedObjects = cmds.ls(selection = True, transforms = True)

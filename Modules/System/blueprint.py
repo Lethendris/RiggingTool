@@ -46,6 +46,7 @@ class Blueprint:
         self.containerName = f'{self.moduleNamespace}:module_container'  # Main container node.
         self.moduleGrp = None  # Top-level group for the module
         self.jointsGrp = None  # Group for joints
+        self.joints = list()  # Group for joints
         self.hierarchyConnectorsGrp = None # Hierarchy connectors group
         self.hierarchyContainer = None # Hierarchy container
         self.hierarchyConnector = None # Hierarchy connector
@@ -359,82 +360,48 @@ class Blueprint:
 
     # BASE CLASS METHODS
     def install(self):
-        # Ensure we are in the root namespace before creating the module's namespace
         cmds.namespace(setNamespace = ':')
-        cmds.namespace(addNamespace = self.moduleNamespace)
 
-        # Subgroups for different types of nodes
-        self.jointsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:joints_grp')
-        self.moduleGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:module_grp')
-        self.hierarchyConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:hierarchy_connectors_grp')
-        self.orientationConnectorsGrp = cmds.group(empty = True, name = f'{self.moduleNamespace}:orientation_connectors_grp')
+        if not cmds.namespace(exists = self.moduleNamespace):
+            cmds.namespace(addNamespace = self.moduleNamespace)
 
-        # Create the main container for the module
-        # Pass the top-level module group to the container
-        self.containerName = utils.createContainer(f'{self.moduleNamespace}:module_container', nodesIn = [self.moduleGrp], includeHierarchyBelow = True)
-        # Parent subgroups under the main module group
-        cmds.parent(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, self.moduleGrp, absolute = True)
+        cmds.namespace(setNamespace = self.moduleNamespace)
 
-        # List to store the full names of created joints
-        cmds.select(clear = True)
-        joints = []
-        for index, joint in enumerate(self.jointInfo):
-            jointName = joint[0]  # ex: 'root_joint', 'end_joint'
-            jointPos = joint[1]  # ex: [4.0, 0.0, 0.0]
+        self.createGroups()
+        self.createJoints()
+        # self.createModuleTransform()
 
-            parentJoint = ''
 
-            # Determine parent for the current joint
-            if index > 0:
-                # The parent is the previously created joint in the list
-                parentJoint = f'{self.moduleNamespace}:{self.jointInfo[index - 1][0]}'
-                cmds.select(parentJoint, replace = True)
 
-            # Create the joint
-            jointName_full = cmds.joint(name = f'{self.moduleNamespace}:{jointName}', position = jointPos)  # example: ModuleName__UserSpecifiedName:JointName
-            joints.append(jointName_full)
-            cmds.setAttr(f'{jointName_full}.visibility', 0)
-
-            # Add joint to the module's container
-            utils.addNodeToContainer(container = self.containerName, nodesIn = [jointName_full])
-
-            # Publish joint attributes to the container for external access
-            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_Rotate'))
-            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_RotateOrder'))
-
-            # Orient the parent joint towards its child
-            if index > 0:
-                cmds.joint(parentJoint, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
-
-        if self.mirrored:
-            mirrorXY = self.mirrorPlane == 'XY'
-            mirrorYZ = self.mirrorPlane == 'YZ'
-            mirrorXZ = self.mirrorPlane == 'XZ'
-            mirrorBehavior = self.rotationFunction == 'Behavior'
-
-            mirroredNodes = cmds.mirrorJoint(joints[0], mirrorXY = mirrorXY, mirrorYZ = mirrorYZ, mirrorXZ = mirrorXZ, mirrorBehavior = mirrorBehavior)
-
-            cmds.delete(joints)
-
-            mirroredJoints = []
-
-            for node in mirroredNodes:
-                if cmds.objectType(node, isType = 'joint'):
-                    mirroredJoints.append(node)
-
-                else:
-                    cmds.delete(node)
-
-            for index, joint in enumerate(mirroredJoints):
-                jointName = self.jointInfo[index][0]
-                newJointName = cmds.rename(joint, f'{self.moduleNamespace}:{jointName}')
-
-                self.jointInfo[index][1] = cmds.xform(newJointName, query = True, worldSpace = True, translation = True)
+        # if self.mirrored:
+        #     mirrorXY = self.mirrorPlane == 'XY'
+        #     mirrorYZ = self.mirrorPlane == 'YZ'
+        #     mirrorXZ = self.mirrorPlane == 'XZ'
+        #     mirrorBehavior = self.rotationFunction == 'Behavior'
+        #
+        #     mirroredNodes = cmds.mirrorJoint(joints[0], mirrorXY = mirrorXY, mirrorYZ = mirrorYZ, mirrorXZ = mirrorXZ, mirrorBehavior = mirrorBehavior)
+        #
+        #     cmds.delete(joints)
+        #
+        #     mirroredJoints = []
+        #
+        #     for node in mirroredNodes:
+        #         if cmds.objectType(node, isType = 'joint'):
+        #             mirroredJoints.append(node)
+        #
+        #         else:
+        #             cmds.delete(node)
+        #
+        #     for index, joint in enumerate(mirroredJoints):
+        #         jointName = self.jointInfo[index][0]
+        #         newJointName = cmds.rename(joint, f'{self.moduleNamespace}:{jointName}')
+        #
+        #         self.jointInfo[index][1] = cmds.xform(newJointName, query = True, worldSpace = True, translation = True)
 
 
         # Parent the root joint (first joint created) under the joints group
-        cmds.parent(joints[0], self.jointsGrp, absolute = True)
 
+        return
         self.initializeModuleTransform(self.jointInfo[0][1])
 
         translationControls = []
@@ -453,6 +420,58 @@ class Blueprint:
         self.install_custom(joints)
 
         cmds.lockNode(self.containerName, lock = True, lockUnpublished = True)
+
+    def createGroups(self):
+
+        # Subgroups for different types of nodes
+        self.jointsGrp = cmds.group(empty = True, name = 'joints_grp')
+        self.moduleGrp = cmds.group(empty = True, name = 'module_grp')
+        self.hierarchyConnectorsGrp = cmds.group(empty = True, name = 'hierarchy_connectors_grp')
+        self.orientationConnectorsGrp = cmds.group(empty = True, name = 'orientation_connectors_grp')
+
+        # Create the main container for the module
+        # Pass the top-level module group to the container
+        self.containerName = utils.createContainer('module_container', nodesIn = [self.moduleGrp], includeHierarchyBelow = True)
+        # Parent subgroups under the main module group
+        cmds.parent(self.jointsGrp, self.hierarchyConnectorsGrp, self.orientationConnectorsGrp, self.moduleGrp, absolute = True)
+
+    def createJoints(self):
+
+        # List to store the full names of created joints
+        cmds.select(clear = True)
+
+        for index, joint in enumerate(self.jointInfo):
+            jointName = joint[0]  # ex: 'root_joint', 'end_joint'
+            jointPos = joint[1]  # ex: [4.0, 0.0, 0.0]
+
+            parentJoint = ''
+
+            # Determine parent for the current joint
+            if index > 0:
+                # The parent is the previously created joint in the list
+                parentJoint = f'{self.moduleNamespace}:{self.jointInfo[index - 1][0]}'
+                cmds.select(parentJoint, replace = True)
+
+            # Create the joint
+            jointName_full = cmds.joint(name = jointName, position = jointPos)  # example: ModuleName__UserSpecifiedName:JointName
+            self.joints.append(jointName_full)
+            # cmds.setAttr(f'{jointName_full}.visibility', 0)
+
+            # Add joint to the module's container
+            utils.addNodeToContainer(container = self.containerName, nodesIn = [jointName_full])
+
+            # Publish joint attributes to the container for external access
+            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotate', f'{jointName}_Rotate'))
+            cmds.container(self.containerName, edit = True, publishAndBind = (f'{jointName_full}.rotateOrder', f'{jointName}_RotateOrder'))
+
+            # Orient the parent joint towards its child
+            if index > 0:
+                cmds.joint(parentJoint, edit = True, orientJoint = 'xyz', secondaryAxisOrient = 'yup')
+
+            cmds.parent(self.joints[0], self.jointsGrp, absolute = True)
+
+    def createModuleTransform(self):
+        utils.createModuleTransformControl(name = f'{self.moduleNamespace}:module_transform')
 
     def createTranslationControlAtJoint(self, joint):
         """
@@ -541,32 +560,32 @@ class Blueprint:
 
         cmds.xform(self.moduleTransform, worldSpace = True, absolute = True, translation = rootPosition)  # Set its world space position.
 
-        if self.mirrored:
-
-            duplicateTransform = cmds.duplicate(f'{self.originalModule}:module_transform', parentOnly = True, name = 'TEMP_TRANSFORM')[0]
-            emptyGroup = cmds.group(empty = True)
-            cmds.parent(duplicateTransform, emptyGroup, absolute = True)
-
-            scaleAttr = 'scaleX'
-
-            if self.mirrorPlane == 'XZ':
-                scaleAttr = 'scaleY'
-            elif self.mirrorPlane == 'XY':
-                scaleAttr = 'scaleZ'
-
-            cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
-
-            parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
-            cmds.delete(parentConstraint)
-            cmds.delete(emptyGroup)
-
-            tempLocator = cmds.spaceLocator()[0]
-            scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
-            scale = cmds.getAttr(f'{tempLocator}.scaleX')
-
-            cmds.delete(scaleConstraint, tempLocator)
-
-            cmds.xform(self.moduleTransform, objectSpace = True, scale = (scale, scale, scale))
+        # if self.mirrored:
+        #
+        #     duplicateTransform = cmds.duplicate(f'{self.originalModule}:module_transform', parentOnly = True, name = 'TEMP_TRANSFORM')[0]
+        #     emptyGroup = cmds.group(empty = True)
+        #     cmds.parent(duplicateTransform, emptyGroup, absolute = True)
+        #
+        #     scaleAttr = 'scaleX'
+        #
+        #     if self.mirrorPlane == 'XZ':
+        #         scaleAttr = 'scaleY'
+        #     elif self.mirrorPlane == 'XY':
+        #         scaleAttr = 'scaleZ'
+        #
+        #     cmds.setAttr(f'{emptyGroup}.{scaleAttr}', -1)
+        #
+        #     parentConstraint = cmds.parentConstraint(duplicateTransform, self.moduleTransform, maintainOffset = False)
+        #     cmds.delete(parentConstraint)
+        #     cmds.delete(emptyGroup)
+        #
+        #     tempLocator = cmds.spaceLocator()[0]
+        #     scaleConstraint = cmds.scaleConstraint(f'{self.originalModule}:module_transform', tempLocator, maintainOffset = False)[0]
+        #     scale = cmds.getAttr(f'{tempLocator}.scaleX')
+        #
+        #     cmds.delete(scaleConstraint, tempLocator)
+        #
+        #     cmds.xform(self.moduleTransform, objectSpace = True, scale = (scale, scale, scale))
 
         utils.addNodeToContainer(container = self.containerName, nodesIn = [self.moduleTransform], includeHierarchyBelow = True)
 

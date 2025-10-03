@@ -10,7 +10,7 @@ MODULE_ICON = os.path.join(os.environ['RIGGING_TOOL_ROOT'], 'Icons/_singleJointS
 
 class SingleJointSegment(blueprintMod.Blueprint):
     def __init__(self, userSpecifiedName, hookObj):
-        jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 0.0, 0.0]]]
+        jointInfo = [['root_joint', [0.0, 0.0, 0.0]], ['end_joint', [4.0, 4.0, 0.0]], ['end_joint2', [8.0, 8.0, 0.0]]]
 
         super().__init__(CLASS_NAME, userSpecifiedName, jointInfo, hookObj)
 
